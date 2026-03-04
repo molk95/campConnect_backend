@@ -9,7 +9,7 @@ import java.util.List;
 
 @Tag(name = "Gestion Site Camping")
 @RestController
-@RequestMapping("/api/site-camping")
+@RequestMapping("/site-camping")
 @AllArgsConstructor
 public class SiteCampingController {
     private final ISiteCampingService iSiteCampingService;
