@@ -10,12 +10,12 @@ import java.util.List;
 @Tag(name = "Gestion Inscription Site")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/inscriptionsite")
+@RequestMapping("/inscriptionsite")
 public class InscriptionSiteController {
     private final IInscriptionSiteService iInscriptionSiteService;
 
     @Operation(description = "Récupérer une inscription site")
-    @GetMapping("/get/{idInscription}")
+    @GetMapping("/{idInscription}")
     public InscriptionSite getInscriptionSite(@PathVariable Long idInscription) {
         return iInscriptionSiteService.getInscriptionSiteById(idInscription);
     }
