@@ -48,11 +48,11 @@ Run `CampConnectApplication`
 
 ### Backend:
 ```
-http://localhost:8080
+http://localhost:8080/api
 ```
 ### Swagger UI:
 ```
-http://localhost:8080/swagger-ui.html
+http://localhost:8080/api/swagger-ui.html
 ```
 # 2. Run Application With Docker
 ## Requirements
@@ -76,12 +76,12 @@ docker compose up --build -d
 
 ### Backend:
 ```
-http://localhost:8080
+http://localhost:8080/api
 ```
 
 ### Swagger:
 ```
-http://localhost:8080/swagger-ui.html
+http://localhost:8080/api/swagger-ui.html
 ```
 
 ### MySQL:
