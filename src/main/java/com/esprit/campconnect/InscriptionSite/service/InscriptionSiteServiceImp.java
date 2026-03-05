@@ -1,5 +1,7 @@
-package com.esprit.campconnect.InscriptionSite;
+package com.esprit.campconnect.InscriptionSite.service;
 
+import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
+import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 

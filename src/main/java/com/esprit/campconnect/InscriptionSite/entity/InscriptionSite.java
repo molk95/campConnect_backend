@@ -1,6 +1,6 @@
-package com.esprit.campconnect.InscriptionSite;
+package com.esprit.campconnect.InscriptionSite.entity;
 
-import com.esprit.campconnect.siteCamping.SiteCamping;
+import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;

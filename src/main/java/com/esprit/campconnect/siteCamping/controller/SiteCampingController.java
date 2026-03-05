@@ -1,5 +1,7 @@
-package com.esprit.campconnect.siteCamping;
+package com.esprit.campconnect.siteCamping.controller;
 
+import com.esprit.campconnect.siteCamping.service.ISiteCampingService;
+import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;

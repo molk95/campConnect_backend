@@ -1,5 +1,6 @@
-package com.esprit.campconnect.InscriptionSite;
+package com.esprit.campconnect.InscriptionSite.repository;
 
+import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
