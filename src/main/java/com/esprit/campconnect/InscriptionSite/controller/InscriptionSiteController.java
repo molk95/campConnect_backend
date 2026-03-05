@@ -1,5 +1,7 @@
-package com.esprit.campconnect.InscriptionSite;
+package com.esprit.campconnect.InscriptionSite.controller;
 
+import com.esprit.campconnect.InscriptionSite.service.IInscriptionSiteService;
+import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

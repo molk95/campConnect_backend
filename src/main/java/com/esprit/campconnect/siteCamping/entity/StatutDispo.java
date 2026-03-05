@@ -1,4 +1,4 @@
-package com.esprit.campconnect.siteCamping;
+package com.esprit.campconnect.siteCamping.entity;
 
 public enum StatutDispo {
     DISPONIBLE,
