@@ -1,4 +1,6 @@
-package com.esprit.campconnect.InscriptionSite;
+package com.esprit.campconnect.InscriptionSite.service;
+
+import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 
 import java.util.List;
 

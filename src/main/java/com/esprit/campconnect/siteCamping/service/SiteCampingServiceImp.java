@@ -1,5 +1,7 @@
-package com.esprit.campconnect.siteCamping;
+package com.esprit.campconnect.siteCamping.service;
 
+import com.esprit.campconnect.siteCamping.entity.SiteCamping;
+import com.esprit.campconnect.siteCamping.repository.SiteCampingRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
