@@ -120,11 +120,16 @@ docker compose down -v
 
 ```
 com.esprit.campconnect
- ├─ siteCamping
- │   ├─ controller
- │   ├─ service
- │   ├─ repository
- │   ├─ entity
- │   └─ enums
- └─ CampConnectApplication
+├─ InscriptionSite
+│  ├─ controller
+│  │  └─ InscriptionSiteController
+│  ├─ entity
+│  │  ├─ InscriptionSite
+│  │  └─ StatutInscription
+│  ├─ repository
+│  │  └─ InscriptionSiteRepository
+│  └─ service
+│     ├─ IInscriptionSiteService
+│     └─ InscriptionSiteServiceImp
+└─ CampConnectApplication
 ```
