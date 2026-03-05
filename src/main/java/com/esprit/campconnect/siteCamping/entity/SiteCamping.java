@@ -1,11 +1,8 @@
-package com.esprit.campconnect.siteCamping;
+package com.esprit.campconnect.siteCamping.entity;
 
-import com.esprit.campconnect.InscriptionSite.InscriptionSite;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.util.Set;
 
 @Getter
 @Setter
