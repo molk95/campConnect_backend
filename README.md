@@ -48,11 +48,11 @@ Run `CampConnectApplication`
 
 ### Backend:
 ```
-http://localhost:8080/api
+http://localhost:8082/api
 ```
 ### Swagger UI:
 ```
-http://localhost:8080/api/swagger-ui.html
+http://localhost:8082/api/swagger-ui.html
 ```
 # 2. Run Application With Docker
 ## Requirements
