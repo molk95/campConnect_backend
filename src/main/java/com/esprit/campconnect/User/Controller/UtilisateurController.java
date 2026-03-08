@@ -16,7 +16,7 @@ import java.util.List;
 @Tag(name="Gestion d'utilisateur")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/user")
+@RequestMapping("/user")
 @CrossOrigin("*")
 
 public class UtilisateurController {

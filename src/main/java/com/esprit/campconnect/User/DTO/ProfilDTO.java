@@ -1,19 +1,14 @@
 package com.esprit.campconnect.User.DTO;
 
-import lombok.*;
-import lombok.experimental.FieldDefaults;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
-@Setter
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
-@ToString
-@FieldDefaults(level = AccessLevel.PRIVATE)
-
 public class ProfilDTO {
-    String adresse;
-
-    String photo;
-
-    String biographie;
+    private String adresse;
+    private String photo;
+    private String biographie;
 }

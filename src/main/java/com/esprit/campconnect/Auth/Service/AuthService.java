@@ -1,5 +1,6 @@
 package com.esprit.campconnect.Auth.Service;
 
+import com.esprit.campconnect.User.Entity.Profil;
 import com.esprit.campconnect.User.Entity.Role;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
@@ -22,10 +23,17 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
+
+
     public AuthResponse register(RegisterRequest request) {
         if (utilisateurRepository.existsByEmail(request.getEmail())) {
             return new AuthResponse(null, "Email déjà utilisé", null);
         }
+
+        Profil profil = new Profil();
+        profil.setAdresse("");
+        profil.setPhoto("");
+        profil.setBiographie("");
 
         Utilisateur utilisateur = new Utilisateur();
         utilisateur.setNom(request.getNom());
@@ -35,6 +43,11 @@ public class AuthService {
 
         // Inscription publique : par défaut CLIENT
         utilisateur.setRole(request.getRole() != null ? request.getRole() : Role.CLIENT);
+
+        // liaison user <-> profil
+        utilisateur.setProfil(profil);
+        profil.setUtilisateur(utilisateur);
+
 
         Utilisateur savedUser = utilisateurRepository.save(utilisateur);
         String jwtToken = jwtService.generateToken(savedUser);

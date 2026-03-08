@@ -33,14 +33,21 @@ public class Utilisateur implements UserDetails {
     String motDePasse;
     String telephone;
 
+
+    @Column(updatable = false)
     LocalDate dateCreation;
 
     @Enumerated(EnumType.STRING)
     Role role;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "profil_id")
     Profil profil;
+
+    @PrePersist
+    protected void onCreate() {
+        this.dateCreation = LocalDate.now();
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
