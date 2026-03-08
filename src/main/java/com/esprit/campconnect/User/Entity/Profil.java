@@ -25,6 +25,7 @@ public class Profil {
 
     String biographie;
 
+    @JsonIgnore
     @OneToOne(mappedBy = "profil")
     Utilisateur utilisateur;
 

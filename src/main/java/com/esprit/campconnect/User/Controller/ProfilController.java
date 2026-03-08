@@ -15,7 +15,7 @@ import java.util.List;
 @Tag(name="Gestion de profil")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/profil")
+@RequestMapping("/profil")
 @CrossOrigin("*")
 
 

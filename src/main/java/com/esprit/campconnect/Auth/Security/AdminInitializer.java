@@ -18,12 +18,12 @@ public class AdminInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
 
-        if(utilisateurRepository.findByEmail("admin@campconnect.com").isEmpty()) {
+        if(utilisateurRepository.findByEmail("admin123@campconnect.com").isEmpty()) {
 
             Utilisateur admin = new Utilisateur();
 
-            admin.setNom("Admin");
-            admin.setEmail("admin@campconnect.com");
+            admin.setNom("CampConnect");
+            admin.setEmail("admin123@campconnect.com");
             admin.setMotDePasse(passwordEncoder.encode("admin123"));
             admin.setRole(Role.ADMINISTRATEUR);
 
