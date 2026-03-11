@@ -1,8 +1,11 @@
 package com.esprit.campconnect.siteCamping.entity;
 
+import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.util.Set;
 
 @Getter
 @Setter
@@ -23,6 +26,8 @@ public class SiteCamping {
     int capacite;
 
     double prixParNuit;
+    String image;
+    String description;
 
     @Enumerated(EnumType.STRING)
     StatutDispo statutDispo;
@@ -30,6 +35,6 @@ public class SiteCamping {
     /*@OneToMany(mappedBy = "siteCamping")
     Set<Avis> avis;*/
 
-   /* @OneToMany(mappedBy = "siteCamping")
-    Set<InscriptionSite> inscriptions;*/
+    @OneToMany(mappedBy = "siteCamping")
+    Set<InscriptionSite> inscriptions;
 }
