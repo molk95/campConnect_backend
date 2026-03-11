@@ -1,6 +1,7 @@
 package com.esprit.campconnect.InscriptionSite.entity;
 
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -29,6 +30,8 @@ public class InscriptionSite {
     @Enumerated(EnumType.STRING)
     StatutInscription statut;
 
-   @ManyToOne
-   SiteCamping siteCamping;
+    @ToString.Exclude
+    @ManyToOne
+    @JoinColumn(name = "site_id")
+    SiteCamping siteCamping;
 }
