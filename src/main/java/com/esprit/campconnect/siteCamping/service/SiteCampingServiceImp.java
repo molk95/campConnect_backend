@@ -44,8 +44,7 @@ public class SiteCampingServiceImp implements ISiteCampingService {
 
     @Override
     public SiteCamping getSiteCampingById(Long idSite) {
-        return siteCampingRepository.findById(idSite)
-                .orElseThrow(() -> new IllegalArgumentException("SiteCamping not found with id: " + idSite));
+        return siteCampingRepository.findById(idSite).orElseThrow(() -> new RuntimeException("SiteCamping not found with id: " + idSite));
     }
 
     @Override
