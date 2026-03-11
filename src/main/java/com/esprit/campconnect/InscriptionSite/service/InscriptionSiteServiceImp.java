@@ -2,6 +2,9 @@ package com.esprit.campconnect.InscriptionSite.service;
 
 import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteRepository;
+import com.esprit.campconnect.siteCamping.entity.SiteCamping;
+import com.esprit.campconnect.siteCamping.entity.StatutDispo;
+import com.esprit.campconnect.siteCamping.repository.SiteCampingRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -11,8 +14,30 @@ import java.util.List;
 @AllArgsConstructor
 public class InscriptionSiteServiceImp implements IInscriptionSiteService{
     private final InscriptionSiteRepository inscriptionSiteRepository;
+    private final SiteCampingRepository siteCampingRepository;
+
     @Override
     public InscriptionSite addInscriptionSite(InscriptionSite inscriptionSite) {
+        SiteCamping site = siteCampingRepository.findById(inscriptionSite.getSiteCamping().getIdSite())
+                .orElseThrow(() -> new RuntimeException("Site not found"));
+
+        if (!inscriptionSite.getDateFin().isAfter(inscriptionSite.getDateDebut())) {
+            throw new RuntimeException("dateFin must be after dateDebut");
+        }
+
+        if (inscriptionSite.getNumberOfGuests() <= 0) {
+            throw new RuntimeException("numberOfGuests must be greater than 0");
+        }
+
+        if (inscriptionSite.getNumberOfGuests() > site.getCapacite()) {
+            throw new RuntimeException("numberOfGuests exceeds site capacity");
+        }
+
+        if (site.getStatutDispo() == StatutDispo.FULL || site.getStatutDispo() == StatutDispo.CLOSED) {
+            throw new RuntimeException("This site is not available for booking");
+        }
+
+        inscriptionSite.setSiteCamping(site);
         return inscriptionSiteRepository.save(inscriptionSite);
     }
 
