@@ -1,6 +1,7 @@
 package com.esprit.campconnect.siteCamping.entity;
 
 import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -35,6 +36,8 @@ public class SiteCamping {
     /*@OneToMany(mappedBy = "siteCamping")
     Set<Avis> avis;*/
 
+    @ToString.Exclude
+    @JsonIgnore
     @OneToMany(mappedBy = "siteCamping")
     Set<InscriptionSite> inscriptions;
 }
