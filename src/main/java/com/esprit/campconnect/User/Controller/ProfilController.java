@@ -45,18 +45,11 @@ public class ProfilController {
         return profilService.retrieveProfil(id);
     }
 
-    @PostMapping("/addProfil")
-    public Profil addProfil(@RequestBody Profil profil) {
-        return profilService.addProfil(profil);
-    }
 
     @PutMapping("/updateProfil")
     public Profil modifyProfil(@RequestBody Profil profil) {
         return profilService.updateProfil(profil);
     }
 
-    @DeleteMapping("/deleteProfil/{id}")
-    public void removeProfil(@PathVariable Long id) {
-        profilService.removeProfil(id);
-    }
+
 }
