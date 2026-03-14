@@ -1,6 +1,7 @@
 package com.esprit.campconnect.User.Entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -14,6 +15,7 @@ import lombok.experimental.FieldDefaults;
 @ToString(exclude = "utilisateur")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Profil {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

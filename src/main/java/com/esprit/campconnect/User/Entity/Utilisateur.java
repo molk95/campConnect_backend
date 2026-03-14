@@ -1,5 +1,7 @@
 package com.esprit.campconnect.User.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -19,7 +21,7 @@ import java.util.List;
 @ToString(exclude = "profil")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
-
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Utilisateur implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +32,7 @@ public class Utilisateur implements UserDetails {
     @Column(unique = true, nullable = false)
     String email;
 
+    @JsonIgnore
     String motDePasse;
     String telephone;
 
