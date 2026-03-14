@@ -7,7 +7,5 @@ import java.util.List;
 public interface IProfilService {
     List<Profil> retrieveAllProfils();
     Profil retrieveProfil(Long id);
-    Profil addProfil(Profil profil);
     Profil updateProfil(Profil profil);
-    void removeProfil(Long id);
 }

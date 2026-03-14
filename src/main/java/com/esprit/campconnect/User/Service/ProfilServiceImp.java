@@ -25,18 +25,11 @@ public class ProfilServiceImp implements IProfilService {
         return profilRepository.findById(id).orElse(null);
     }
 
-    @Override
-    public Profil addProfil(Profil profil) {
-        return profilRepository.save(profil);
-    }
+
 
     @Override
     public Profil updateProfil(Profil profil) {
         return profilRepository.save(profil);
     }
 
-    @Override
-    public void removeProfil(Long id) {
-        profilRepository.deleteById(id);
-    }
 }
