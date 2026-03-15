@@ -41,10 +41,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/reclamations/**",
                                 "/repas/**",
-                                "/commandes-repas/**",
-                                "/produits/**",
-                                "/paniers/**"
-
+                                "/commandes-repas/**"
 
                         ).permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMINISTRATEUR")
