@@ -71,17 +71,17 @@ docker compose up --build -d
 
 - MySQL container (port 3307)
 
-- Spring Boot container (port 8080)
+- Spring Boot container (port 8082)
 ### Access Services
 
 ### Backend:
 ```
-http://localhost:8080/api
+http://localhost:8082/api
 ```
 
 ### Swagger:
 ```
-http://localhost:8080/api/swagger-ui.html
+http://localhost:8082/api/swagger-ui.html
 ```
 
 ### MySQL:
