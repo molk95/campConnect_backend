@@ -27,14 +27,12 @@ public class SiteCamping {
     int capacite;
 
     double prixParNuit;
-    String image;
+    String imageUrl;
+    String imagePublicId;
     String description;
 
     @Enumerated(EnumType.STRING)
     StatutDispo statutDispo;
-
-    /*@OneToMany(mappedBy = "siteCamping")
-    Set<Avis> avis;*/
 
     @ToString.Exclude
     @JsonIgnore
