@@ -1,7 +1,10 @@
 package com.esprit.campconnect.siteCamping.service;
 
+import com.esprit.campconnect.InscriptionSite.entity.StatutInscription;
+import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteRepository;
 import com.esprit.campconnect.common.ICloudinaryService;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
+import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingUpdateRequest;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.esprit.campconnect.siteCamping.repository.SiteCampingRepository;
@@ -17,6 +20,7 @@ import java.util.Map;
 public class SiteCampingServiceImp implements ISiteCampingService {
     private final SiteCampingRepository siteCampingRepository;
     private final ICloudinaryService cloudinaryService;
+    private final InscriptionSiteRepository inscriptionSiteRepository;
 
     @Override
     public SiteCamping patchSiteCamping(Long idSite, SiteCampingUpdateRequest updatedData) {
@@ -56,13 +60,42 @@ public class SiteCampingServiceImp implements ISiteCampingService {
     }
 
     @Override
-    public SiteCamping getSiteCampingById(Long idSite) {
-        return siteCampingRepository.findById(idSite).orElseThrow(() -> new RuntimeException("SiteCamping not found with id: " + idSite));
+    public SiteCampingResponse getSiteCampingById(Long idSite) {
+        SiteCamping site = siteCampingRepository.findById(idSite)
+                .orElseThrow(() -> new RuntimeException("SiteCamping not found with id: " + idSite));
+
+        return mapToResponse(site);
     }
 
     @Override
-    public List<SiteCamping> getAllSiteCampings() {
-        return siteCampingRepository.findAll();
+    public List<SiteCampingResponse> getAllSiteCampings() {
+        return siteCampingRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    private int calculateRemainingCapacity(SiteCamping site) {
+        Integer confirmedGuests = inscriptionSiteRepository
+                .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+
+        return site.getCapacite() - confirmedGuests;
+    }
+
+    private SiteCampingResponse mapToResponse(SiteCamping site) {
+        SiteCampingResponse response = new SiteCampingResponse();
+        response.setIdSite(site.getIdSite());
+        response.setNom(site.getNom());
+        response.setLocalisation(site.getLocalisation());
+        response.setCapacite(site.getCapacite());
+        response.setRemainingCapacity(calculateRemainingCapacity(site));
+        response.setPrixParNuit(site.getPrixParNuit());
+        response.setDescription(site.getDescription());
+        response.setImageUrl(site.getImageUrl());
+        response.setImagePublicId(site.getImagePublicId());
+        response.setStatutDispo(site.getStatutDispo());
+
+        return response;
     }
 
     @Override
