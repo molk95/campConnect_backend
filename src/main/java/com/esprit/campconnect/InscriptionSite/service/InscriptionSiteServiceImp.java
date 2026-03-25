@@ -1,6 +1,9 @@
 package com.esprit.campconnect.InscriptionSite.service;
 
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCreateRequest;
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteUpdateRequest;
 import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
+import com.esprit.campconnect.InscriptionSite.entity.StatutInscription;
 import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteRepository;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.esprit.campconnect.siteCamping.entity.StatutDispo;
@@ -16,52 +19,106 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
     private final InscriptionSiteRepository inscriptionSiteRepository;
     private final SiteCampingRepository siteCampingRepository;
 
+    private void updateSiteStatus(SiteCamping site) {
+        Integer reservedGuests = inscriptionSiteRepository
+                .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+
+        int remainingCapacity = site.getCapacite() - reservedGuests;
+
+        if (remainingCapacity <= 0) {
+            site.setStatutDispo(StatutDispo.FULL);
+        } else if (site.getStatutDispo() != StatutDispo.CLOSED) {
+            site.setStatutDispo(StatutDispo.AVAILABLE);
+        }
+
+        siteCampingRepository.save(site);
+    }
+
     @Override
-    public InscriptionSite addInscriptionSite(InscriptionSite inscriptionSite) {
-        SiteCamping site = siteCampingRepository.findById(inscriptionSite.getSiteCamping().getIdSite())
+    public InscriptionSite addInscriptionSite(InscriptionSiteCreateRequest request) {
+        SiteCamping site = siteCampingRepository.findById(request.getSiteId())
                 .orElseThrow(() -> new RuntimeException("Site not found"));
 
-        if (!inscriptionSite.getDateFin().isAfter(inscriptionSite.getDateDebut())) {
+        Integer reservedGuests = inscriptionSiteRepository
+                .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+
+        int remainingCapacity = site.getCapacite() - reservedGuests;
+
+        if (!request.getDateFin().isAfter(request.getDateDebut())) {
             throw new RuntimeException("dateFin must be after dateDebut");
         }
 
-        if (inscriptionSite.getNumberOfGuests() <= 0) {
+        if (request.getNumberOfGuests() == null || request.getNumberOfGuests() <= 0) {
             throw new RuntimeException("numberOfGuests must be greater than 0");
         }
 
-        if (inscriptionSite.getNumberOfGuests() > site.getCapacite()) {
-            throw new RuntimeException("numberOfGuests exceeds site capacity");
+        if (request.getNumberOfGuests() > remainingCapacity) {
+            throw new RuntimeException("numberOfGuests exceeds remaining capacity");
         }
 
         if (site.getStatutDispo() == StatutDispo.FULL || site.getStatutDispo() == StatutDispo.CLOSED) {
             throw new RuntimeException("This site is not available for booking");
         }
 
+        InscriptionSite inscriptionSite = new InscriptionSite();
+        inscriptionSite.setDateDebut(request.getDateDebut());
+        inscriptionSite.setDateFin(request.getDateFin());
+        inscriptionSite.setNumberOfGuests(request.getNumberOfGuests());
+        inscriptionSite.setStatut(StatutInscription.PENDING);
         inscriptionSite.setSiteCamping(site);
-        return inscriptionSiteRepository.save(inscriptionSite);
+
+        InscriptionSite saved = inscriptionSiteRepository.save(inscriptionSite);
+
+        updateSiteStatus(site);
+
+        return saved;
     }
 
     @Override
-    public InscriptionSite patchInscriptionSite(Long idInscription, InscriptionSite updatedData) {
+    public InscriptionSite patchInscriptionSite(Long idInscription, InscriptionSiteUpdateRequest request) {
         InscriptionSite existing = inscriptionSiteRepository.findById(idInscription)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "InscriptionSite not found with id: " + idInscription));
 
-        if (updatedData.getDateDebut() != null)
-            existing.setDateDebut(updatedData.getDateDebut());
+        if (existing.getStatut() != StatutInscription.PENDING) {
+            throw new RuntimeException("Only pending inscriptions can be modified");
+        }
 
-        if (updatedData.getDateFin() != null)
-            existing.setDateFin(updatedData.getDateFin());
+        if (request.getDateDebut() != null)
+            existing.setDateDebut(request.getDateDebut());
 
-        if (updatedData.getStatut() != null)
-            existing.setStatut(updatedData.getStatut());
+        if (request.getDateFin() != null)
+            existing.setDateFin(request.getDateFin());
 
-        if (updatedData.getSiteCamping() != null)
-            existing.setSiteCamping(updatedData.getSiteCamping());
+        if (existing.getDateDebut() != null && existing.getDateFin() != null) {
+            if (!existing.getDateFin().isAfter(existing.getDateDebut())) {
+                throw new RuntimeException("dateFin must be after dateDebut");
+            }
+        }
 
-        return inscriptionSiteRepository.save(existing);
+        if (request.getNumberOfGuests() != null) {
+            if (request.getNumberOfGuests() <= 0) {
+                throw new RuntimeException("numberOfGuests must be greater than 0");
+            }
+
+            SiteCamping site = existing.getSiteCamping();
+
+            Integer reservedGuests = inscriptionSiteRepository
+                    .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+
+            int remainingCapacity = site.getCapacite() - reservedGuests;
+
+            if (request.getNumberOfGuests() > remainingCapacity) {
+                throw new RuntimeException("numberOfGuests exceeds remaining capacity");
+            }
+
+            existing.setNumberOfGuests(request.getNumberOfGuests());
+        }
+
+        InscriptionSite saved = inscriptionSiteRepository.save(existing);
+
+        return saved;
     }
-
 
     @Override
     public InscriptionSite getInscriptionSiteById(Long idInscription) {
@@ -87,5 +144,56 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
     @Override
     public List<InscriptionSite> getBySiteCamping(Long idSite) {
         return inscriptionSiteRepository.findBySiteCamping_IdSite(idSite);
+    }
+
+    @Override
+    public InscriptionSite confirmInscriptionSite(Long idInscription) {
+        InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "InscriptionSite not found with id: " + idInscription));
+
+        if (inscription.getStatut() != StatutInscription.PENDING) {
+            throw new RuntimeException("Only pending inscriptions can be confirmed");
+        }
+
+        SiteCamping site = inscription.getSiteCamping();
+
+        if (site.getStatutDispo() == StatutDispo.CLOSED) {
+            throw new RuntimeException("This site is closed");
+        }
+
+        Integer confirmedGuests = inscriptionSiteRepository
+                .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+
+        int remainingCapacity = site.getCapacite() - confirmedGuests;
+
+        if (inscription.getNumberOfGuests() > remainingCapacity) {
+            throw new RuntimeException("Not enough remaining capacity to confirm this inscription");
+        }
+
+        inscription.setStatut(StatutInscription.CONFIRMED);
+        InscriptionSite saved = inscriptionSiteRepository.save(inscription);
+
+        updateSiteStatus(site);
+
+        return saved;
+    }
+
+    @Override
+    public InscriptionSite cancelInscriptionSite(Long idInscription) {
+        InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "InscriptionSite not found with id: " + idInscription));
+
+        if (inscription.getStatut() == StatutInscription.CANCELLED) {
+            throw new RuntimeException("Inscription is already cancelled");
+        }
+
+        inscription.setStatut(StatutInscription.CANCELLED);
+        InscriptionSite saved = inscriptionSiteRepository.save(inscription);
+
+        updateSiteStatus(inscription.getSiteCamping());
+
+        return saved;
     }
 }

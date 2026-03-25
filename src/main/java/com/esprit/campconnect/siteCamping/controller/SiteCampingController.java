@@ -1,6 +1,7 @@
 package com.esprit.campconnect.siteCamping.controller;
 
 import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
+import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingUpdateRequest;
 import com.esprit.campconnect.siteCamping.service.ISiteCampingService;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
@@ -21,7 +22,7 @@ public class SiteCampingController {
 
     @Operation(description = "Récupérer un site camping")
     @GetMapping("/getsite/{idSite}")
-    public SiteCamping retrieveSiteCamping(@PathVariable Long idSite) {
+    public SiteCampingResponse retrieveSiteCamping(@PathVariable Long idSite) {
         return iSiteCampingService.getSiteCampingById(idSite);
     }
 
@@ -38,7 +39,7 @@ public class SiteCampingController {
 
     @Operation(description = "Récupérer tous les sites camping")
     @GetMapping("/getAll")
-    public List<SiteCamping> getAllSiteCampings() {
+    public List<SiteCampingResponse> getAllSiteCampings() {
         return iSiteCampingService.getAllSiteCampings();
     }
 
