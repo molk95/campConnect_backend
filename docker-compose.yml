@@ -32,9 +32,12 @@ services:
     depends_on:
       - mysql
     ports:
-      - "8080:8080"
+      - "8082:8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      CLOUDINARY_CLOUD_NAME: dczqefpdb
+      CLOUDINARY_API_KEY: 496427515753929
+      CLOUDINARY_API_SECRET: n-zjAvwxckpv6zxxHyiBHo-q_8k
     restart: always
 
 volumes:
