@@ -22,7 +22,7 @@ public class SiteCampingAvis {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    int note;
+    Integer note;
 
     String commentaire;
 
