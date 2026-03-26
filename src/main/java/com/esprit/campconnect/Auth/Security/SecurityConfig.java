@@ -37,6 +37,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/site-camping/**",
+                                "/site-camping-avis/**",
                                 "/inscriptionsite/**",
                                 "/reclamations/**",
                                 "/repas/**",

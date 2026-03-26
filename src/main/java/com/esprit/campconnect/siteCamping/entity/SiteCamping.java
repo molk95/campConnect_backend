@@ -24,7 +24,7 @@ public class SiteCamping {
 
     String localisation;
 
-    int capacite;
+    Integer capacite;
 
     double prixParNuit;
     String imageUrl;
