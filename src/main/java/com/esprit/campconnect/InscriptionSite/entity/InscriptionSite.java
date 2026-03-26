@@ -26,7 +26,7 @@ public class InscriptionSite {
     LocalDate dateDebut;
 
     LocalDate  dateFin;
-    int numberOfGuests;
+    Integer numberOfGuests;
     @Enumerated(EnumType.STRING)
     StatutInscription statut;
 

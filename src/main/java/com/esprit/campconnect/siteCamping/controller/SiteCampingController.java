@@ -1,4 +1,4 @@
-package com.esprit.campconnect.siteCamping.controller;
+/**package com.esprit.campconnect.siteCamping.controller;
 
 import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
@@ -53,3 +53,4 @@ public class SiteCampingController {
         return iSiteCampingService.patchSiteCamping(idSite, updatedData);
     }
 }
+**/
