@@ -7,6 +7,7 @@ import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingUpdateRequest;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
+import com.esprit.campconnect.siteCamping.entity.StatutDispo;
 import com.esprit.campconnect.siteCamping.repository.SiteCampingRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -127,5 +128,20 @@ public class SiteCampingServiceImp implements ISiteCampingService {
         siteCamping.setImagePublicId(uploadResult.get("imagePublicId"));
 
         return siteCampingRepository.save(siteCamping);
+    }
+
+    @Override
+    public SiteCamping closeSiteCamping(Long idSite) {
+        SiteCamping site = siteCampingRepository.findById(idSite)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "SiteCamping not found with id: " + idSite));
+
+        if (site.getStatutDispo() == StatutDispo.CLOSED) {
+            throw new IllegalArgumentException("Site is already closed");
+        }
+
+        site.setStatutDispo(StatutDispo.CLOSED);
+
+        return siteCampingRepository.save(site);
     }
 }

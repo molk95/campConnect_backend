@@ -1,4 +1,4 @@
-/**package com.esprit.campconnect.siteCamping.controller;
+package com.esprit.campconnect.siteCamping.controller;
 
 import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
@@ -52,5 +52,10 @@ public class SiteCampingController {
 
         return iSiteCampingService.patchSiteCamping(idSite, updatedData);
     }
+
+    @Operation(description = "Fermer un site camping")
+    @PatchMapping("/close/{idSite}")
+    public SiteCamping closeSiteCamping(@PathVariable Long idSite) {
+        return iSiteCampingService.closeSiteCamping(idSite);
+    }
 }
-**/
