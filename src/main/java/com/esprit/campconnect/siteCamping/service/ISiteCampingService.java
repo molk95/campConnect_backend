@@ -19,4 +19,5 @@ public interface ISiteCampingService {
     void deleteSiteCamping(Long idSite);
 
     SiteCamping addSiteCamping(SiteCampingCreateRequest request);
+    SiteCamping closeSiteCamping(Long idSite);
 }
