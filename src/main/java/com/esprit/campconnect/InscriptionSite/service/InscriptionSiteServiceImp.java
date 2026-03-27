@@ -23,11 +23,19 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
         Integer reservedGuests = inscriptionSiteRepository
                 .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
 
+        if (reservedGuests == null) {
+            reservedGuests = 0;
+        }
+
         int remainingCapacity = site.getCapacite() - reservedGuests;
+
+        if (site.getStatutDispo() == StatutDispo.CLOSED) {
+            return; // not change closed sites
+        }
 
         if (remainingCapacity <= 0) {
             site.setStatutDispo(StatutDispo.FULL);
-        } else if (site.getStatutDispo() != StatutDispo.CLOSED) {
+        } else {
             site.setStatutDispo(StatutDispo.AVAILABLE);
         }
 
