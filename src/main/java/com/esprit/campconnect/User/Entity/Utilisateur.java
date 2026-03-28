@@ -2,6 +2,7 @@ package com.esprit.campconnect.User.Entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -32,7 +33,9 @@ public class Utilisateur implements UserDetails {
     @Column(unique = true, nullable = false)
     String email;
 
-    @JsonIgnore
+
+    @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     String motDePasse;
     String telephone;
 
@@ -53,11 +56,13 @@ public class Utilisateur implements UserDetails {
     }
 
     @Override
+    @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        return List.of(new SimpleGrantedAuthority(role.name()));
     }
 
     @Override
+    @JsonIgnore
     public String getPassword() {
         return motDePasse;
     }
