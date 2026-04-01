@@ -23,4 +23,6 @@ public class SiteCampingResponse {
     String imageUrl;
     String imagePublicId;
     StatutDispo statutDispo;
+    Long ownerId;
+    String ownerEmail;
 }
