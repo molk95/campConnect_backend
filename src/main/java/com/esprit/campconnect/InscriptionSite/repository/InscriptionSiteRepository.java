@@ -23,4 +23,7 @@ public interface InscriptionSiteRepository extends JpaRepository<InscriptionSite
            """)
     Integer sumGuestsBySiteAndStatut(@Param("siteId") Long siteId,
                                      @Param("statut") StatutInscription statut);
+
+    List<InscriptionSite> findByUtilisateur_Id(Long utilisateurId);
+
 }
