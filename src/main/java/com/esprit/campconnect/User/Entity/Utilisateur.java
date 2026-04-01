@@ -1,5 +1,8 @@
 package com.esprit.campconnect.User.Entity;
 
+import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
+import com.esprit.campconnect.SiteCampingAvis.entity.SiteCampingAvis;
+import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -13,7 +16,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -49,6 +54,18 @@ public class Utilisateur implements UserDetails {
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "profil_id")
     Profil profil;
+
+    @OneToMany(mappedBy = "utilisateur")
+    @JsonIgnore
+    Set<InscriptionSite> inscriptionsSite = new HashSet<>();
+
+    @OneToMany(mappedBy = "utilisateur")
+    @JsonIgnore
+    Set<SiteCampingAvis> avisSiteCamping = new HashSet<>();
+
+    @OneToMany(mappedBy = "owner")
+    @JsonIgnore
+    Set<SiteCamping> managedSites = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {

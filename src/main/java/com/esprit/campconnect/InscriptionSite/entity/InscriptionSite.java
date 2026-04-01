@@ -1,7 +1,9 @@
 package com.esprit.campconnect.InscriptionSite.entity;
 
+import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -34,4 +36,9 @@ public class InscriptionSite {
     @ManyToOne
     @JoinColumn(name = "site_id")
     SiteCamping siteCamping;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "utilisateur_id", nullable = false)
+    @JsonIgnore
+    Utilisateur utilisateur;
 }
