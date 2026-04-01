@@ -14,6 +14,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 
@@ -27,7 +30,7 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         if (utilisateurRepository.existsByEmail(request.getEmail())) {
-            return new AuthResponse(null, "Email déjà utilisé", null);
+            return new AuthResponse(null, null, "Email déjà utilisé", null);
         }
 
         Profil profil = new Profil();
@@ -48,11 +51,11 @@ public class AuthService {
         utilisateur.setProfil(profil);
         profil.setUtilisateur(utilisateur);
 
-
         Utilisateur savedUser = utilisateurRepository.save(utilisateur);
+        
         String jwtToken = jwtService.generateToken(savedUser);
 
-        return new AuthResponse(jwtToken, "Inscription réussie", savedUser.getRole().name());
+        return new AuthResponse(savedUser.getId(), jwtToken, "Inscription réussie", savedUser.getRole().name());
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -68,6 +71,7 @@ public class AuthService {
 
         String jwtToken = jwtService.generateToken(utilisateur);
 
-        return new AuthResponse(jwtToken, "Connexion réussie", utilisateur.getRole().name());
+        return new AuthResponse(utilisateur.getId(), jwtToken, "Connexion réussie", utilisateur.getRole().name());
     }
 }
+

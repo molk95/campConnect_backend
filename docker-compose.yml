@@ -35,7 +35,23 @@ services:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      APP_UPLOAD_DIR: /app/uploads/events
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      PAYMENT_CURRENCY: ${PAYMENT_CURRENCY:-usd}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:4200}
+      PAYMENT_SUCCESS_PATH: ${PAYMENT_SUCCESS_PATH:-/public/events/my-reservations}
+      PAYMENT_CANCEL_PATH: ${PAYMENT_CANCEL_PATH:-/public/events/my-reservations}
+      GOOGLE_MAPS_BROWSER_API_KEY: ${GOOGLE_MAPS_BROWSER_API_KEY:-}
+      GOOGLE_MAPS_SERVER_API_KEY: ${GOOGLE_MAPS_SERVER_API_KEY:-}
+      GOOGLE_MAPS_STATIC_MAP_WIDTH: ${GOOGLE_MAPS_STATIC_MAP_WIDTH:-900}
+      GOOGLE_MAPS_STATIC_MAP_HEIGHT: ${GOOGLE_MAPS_STATIC_MAP_HEIGHT:-420}
+      GOOGLE_MAPS_STATIC_MAP_ZOOM: ${GOOGLE_MAPS_STATIC_MAP_ZOOM:-14}
     restart: always
+    volumes:
+      - backend_uploads:/app/uploads
 
 volumes:
   mysql_data:
+  backend_uploads:

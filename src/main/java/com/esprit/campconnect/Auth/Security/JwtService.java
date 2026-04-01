@@ -50,7 +50,23 @@ public class JwtService {
 
         claims.put("role", role);
 
+        // Add userId if userDetails is a Utilisateur
+        if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur) {
+            Long userId = ((com.esprit.campconnect.User.Entity.Utilisateur) userDetails).getId();
+            if (userId != null) {
+                claims.put("userId", userId);
+            }
+        }
+
         return generateToken(claims, userDetails);
+    }
+
+    public void addUserIdToClaims(Map<String, Object> claims, Long userId) {
+        claims.put("userId", userId);
+    }
+
+    public Long extractUserId(String token) {
+        return extractClaim(token, claims -> claims.get("userId", Long.class));
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
