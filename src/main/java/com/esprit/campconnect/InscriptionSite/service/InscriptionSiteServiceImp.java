@@ -1,24 +1,67 @@
 package com.esprit.campconnect.InscriptionSite.service;
 
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCampingSummary;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCreateRequest;
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteResponse;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteUpdateRequest;
 import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 import com.esprit.campconnect.InscriptionSite.entity.StatutInscription;
 import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteRepository;
+import com.esprit.campconnect.User.Entity.Utilisateur;
+import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.esprit.campconnect.siteCamping.entity.StatutDispo;
 import com.esprit.campconnect.siteCamping.repository.SiteCampingRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class InscriptionSiteServiceImp implements IInscriptionSiteService{
+public class InscriptionSiteServiceImp implements IInscriptionSiteService {
+
     private final InscriptionSiteRepository inscriptionSiteRepository;
     private final SiteCampingRepository siteCampingRepository;
+    private final UtilisateurRepository utilisateurRepository;
 
+    private Utilisateur getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        return utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable"));
+    }
+
+    private InscriptionSiteResponse mapToResponse(InscriptionSite inscription) {
+        InscriptionSiteResponse response = new InscriptionSiteResponse();
+        response.setIdInscription(inscription.getIdInscription());
+        response.setDateDebut(inscription.getDateDebut());
+        response.setDateFin(inscription.getDateFin());
+        response.setNumberOfGuests(inscription.getNumberOfGuests());
+        response.setStatut(inscription.getStatut());
+
+        if (inscription.getSiteCamping() != null) {
+            InscriptionSiteCampingSummary siteSummary = new InscriptionSiteCampingSummary();
+            siteSummary.setIdSite(inscription.getSiteCamping().getIdSite());
+            siteSummary.setNom(inscription.getSiteCamping().getNom());
+            siteSummary.setLocalisation(inscription.getSiteCamping().getLocalisation());
+            siteSummary.setPrixParNuit(inscription.getSiteCamping().getPrixParNuit());
+            siteSummary.setImageUrl(inscription.getSiteCamping().getImageUrl());
+            siteSummary.setStatutDispo(inscription.getSiteCamping().getStatutDispo());
+
+            response.setSiteCamping(siteSummary);
+        }
+
+        if (inscription.getUtilisateur() != null) {
+            response.setUtilisateurId(inscription.getUtilisateur().getId());
+            response.setUtilisateurEmail(inscription.getUtilisateur().getEmail());
+        }
+
+        return response;
+    }
     private void updateSiteStatus(SiteCamping site) {
         Integer reservedGuests = inscriptionSiteRepository
                 .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
@@ -30,7 +73,7 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
         int remainingCapacity = site.getCapacite() - reservedGuests;
 
         if (site.getStatutDispo() == StatutDispo.CLOSED) {
-            return; // not change closed sites
+            return;
         }
 
         if (remainingCapacity <= 0) {
@@ -43,12 +86,16 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
     }
 
     @Override
-    public InscriptionSite addInscriptionSite(InscriptionSiteCreateRequest request) {
+    public InscriptionSiteResponse addInscriptionSite(InscriptionSiteCreateRequest request) {
         SiteCamping site = siteCampingRepository.findById(request.getSiteId())
                 .orElseThrow(() -> new RuntimeException("Site not found"));
 
         Integer reservedGuests = inscriptionSiteRepository
                 .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+
+        if (reservedGuests == null) {
+            reservedGuests = 0;
+        }
 
         int remainingCapacity = site.getCapacite() - reservedGuests;
 
@@ -68,22 +115,25 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
             throw new RuntimeException("This site is not available for booking");
         }
 
+        Utilisateur currentUser = getCurrentUser();
+
         InscriptionSite inscriptionSite = new InscriptionSite();
         inscriptionSite.setDateDebut(request.getDateDebut());
         inscriptionSite.setDateFin(request.getDateFin());
         inscriptionSite.setNumberOfGuests(request.getNumberOfGuests());
         inscriptionSite.setStatut(StatutInscription.PENDING);
         inscriptionSite.setSiteCamping(site);
+        inscriptionSite.setUtilisateur(currentUser);
 
         InscriptionSite saved = inscriptionSiteRepository.save(inscriptionSite);
 
         updateSiteStatus(site);
 
-        return saved;
+        return mapToResponse(saved);
     }
 
     @Override
-    public InscriptionSite patchInscriptionSite(Long idInscription, InscriptionSiteUpdateRequest request) {
+    public InscriptionSiteResponse patchInscriptionSite(Long idInscription, InscriptionSiteUpdateRequest request) {
         InscriptionSite existing = inscriptionSiteRepository.findById(idInscription)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "InscriptionSite not found with id: " + idInscription));
@@ -92,11 +142,13 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
             throw new RuntimeException("Only pending inscriptions can be modified");
         }
 
-        if (request.getDateDebut() != null)
+        if (request.getDateDebut() != null) {
             existing.setDateDebut(request.getDateDebut());
+        }
 
-        if (request.getDateFin() != null)
+        if (request.getDateFin() != null) {
             existing.setDateFin(request.getDateFin());
+        }
 
         if (existing.getDateDebut() != null && existing.getDateFin() != null) {
             if (!existing.getDateFin().isAfter(existing.getDateDebut())) {
@@ -114,6 +166,10 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
             Integer reservedGuests = inscriptionSiteRepository
                     .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
 
+            if (reservedGuests == null) {
+                reservedGuests = 0;
+            }
+
             int remainingCapacity = site.getCapacite() - reservedGuests;
 
             if (request.getNumberOfGuests() > remainingCapacity) {
@@ -124,21 +180,24 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
         }
 
         InscriptionSite saved = inscriptionSiteRepository.save(existing);
-
-        return saved;
+        return mapToResponse(saved);
     }
 
     @Override
-    public InscriptionSite getInscriptionSiteById(Long idInscription) {
-        return inscriptionSiteRepository.findById(idInscription)
+    public InscriptionSiteResponse getInscriptionSiteById(Long idInscription) {
+        InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "InscriptionSite not found with id: " + idInscription
-                ));
+                        "InscriptionSite not found with id: " + idInscription));
+
+        return mapToResponse(inscription);
     }
 
     @Override
-    public List<InscriptionSite> getAllInscriptionSites() {
-        return inscriptionSiteRepository.findAll();
+    public List<InscriptionSiteResponse> getAllInscriptionSites() {
+        return inscriptionSiteRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     @Override
@@ -150,12 +209,15 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
     }
 
     @Override
-    public List<InscriptionSite> getBySiteCamping(Long idSite) {
-        return inscriptionSiteRepository.findBySiteCamping_IdSite(idSite);
+    public List<InscriptionSiteResponse> getBySiteCamping(Long idSite) {
+        return inscriptionSiteRepository.findBySiteCamping_IdSite(idSite)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     @Override
-    public InscriptionSite confirmInscriptionSite(Long idInscription) {
+    public InscriptionSiteResponse confirmInscriptionSite(Long idInscription) {
         InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "InscriptionSite not found with id: " + idInscription));
@@ -173,6 +235,10 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
         Integer confirmedGuests = inscriptionSiteRepository
                 .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
 
+        if (confirmedGuests == null) {
+            confirmedGuests = 0;
+        }
+
         int remainingCapacity = site.getCapacite() - confirmedGuests;
 
         if (inscription.getNumberOfGuests() > remainingCapacity) {
@@ -184,11 +250,11 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
 
         updateSiteStatus(site);
 
-        return saved;
+        return mapToResponse(saved);
     }
 
     @Override
-    public InscriptionSite cancelInscriptionSite(Long idInscription) {
+    public InscriptionSiteResponse cancelInscriptionSite(Long idInscription) {
         InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "InscriptionSite not found with id: " + idInscription));
@@ -202,6 +268,17 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService{
 
         updateSiteStatus(inscription.getSiteCamping());
 
-        return saved;
+        return mapToResponse(saved);
     }
+
+    @Override
+    public List<InscriptionSiteResponse> getMyInscriptions() {
+        Utilisateur currentUser = getCurrentUser();
+
+        return inscriptionSiteRepository.findByUtilisateur_Id(currentUser.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
 }
