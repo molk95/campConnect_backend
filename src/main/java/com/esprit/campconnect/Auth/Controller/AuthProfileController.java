@@ -43,6 +43,7 @@ public class AuthProfileController {
         }
 
         return new CurrentUserDTO(
+                utilisateur.getId(),
                 utilisateur.getNom(),
                 utilisateur.getEmail(),
                 utilisateur.getTelephone(),

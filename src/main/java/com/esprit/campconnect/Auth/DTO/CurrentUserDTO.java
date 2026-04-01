@@ -13,6 +13,7 @@ import lombok.experimental.FieldDefaults;
 
 public class CurrentUserDTO {
 
+    Long id;
     String nom;
     String email;
     String telephone;
@@ -21,6 +22,4 @@ public class CurrentUserDTO {
     String adresse;
     String photo;
     String biographie;
-
-
 }
