@@ -1,9 +1,9 @@
-package com.esprit.campconnect.Notification.Service;
+package com.esprit.campconnect.Reservation.Service;
 
-import com.esprit.campconnect.Notification.DTO.UserNotificationResponseDTO;
-import com.esprit.campconnect.Notification.Entity.UserNotification;
-import com.esprit.campconnect.Notification.Enum.NotificationType;
-import com.esprit.campconnect.Notification.Repository.UserNotificationRepository;
+import com.esprit.campconnect.Reservation.DTO.UserNotificationResponseDTO;
+import com.esprit.campconnect.Reservation.Entity.UserNotification;
+import com.esprit.campconnect.Reservation.Enum.NotificationType;
+import com.esprit.campconnect.Reservation.Repository.UserNotificationRepository;
 import com.esprit.campconnect.Reservation.Entity.Reservation;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;

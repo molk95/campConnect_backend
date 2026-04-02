@@ -1,6 +1,6 @@
-package com.esprit.campconnect.Promotion.Entity;
+package com.esprit.campconnect.Reservation.Entity;
 
-import com.esprit.campconnect.Promotion.Enum.PromotionDiscountType;
+import com.esprit.campconnect.Reservation.Enum.PromotionDiscountType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

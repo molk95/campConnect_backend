@@ -1,4 +1,4 @@
-package com.esprit.campconnect.Notification.Enum;
+package com.esprit.campconnect.Reservation.Enum;
 
 public enum NotificationType {
     BOOKING_CONFIRMED,

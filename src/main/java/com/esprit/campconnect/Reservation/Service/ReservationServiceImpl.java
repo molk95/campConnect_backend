@@ -2,8 +2,6 @@ package com.esprit.campconnect.Reservation.Service;
 
 import com.esprit.campconnect.Event.Entity.Event;
 import com.esprit.campconnect.Event.Repository.EventRepository;
-import com.esprit.campconnect.Notification.Service.UserNotificationService;
-import com.esprit.campconnect.Promotion.Service.PromotionOfferService;
 import com.esprit.campconnect.Reservation.DTO.PaymentProcessDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationCancellationPolicyDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationRequestDTO;

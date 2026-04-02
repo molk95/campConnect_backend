@@ -4,7 +4,6 @@ import com.esprit.campconnect.Event.Entity.Event;
 import com.esprit.campconnect.Reservation.Entity.Reservation;
 import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
 import com.esprit.campconnect.User.Entity.Utilisateur;
-import com.esprit.campconnect.config.CalendarExportProperties;
 import com.esprit.campconnect.config.GoogleMapsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,9 +28,7 @@ class ReservationCalendarServiceTest {
 
     @BeforeEach
     void setUp() {
-        CalendarExportProperties calendarExportProperties = new CalendarExportProperties();
-        calendarExportProperties.setDefaultZone("Africa/Lagos");
-        reservationCalendarService = new ReservationCalendarService(calendarExportProperties, googleMapsService);
+        reservationCalendarService = new ReservationCalendarService(googleMapsService);
     }
 
     @Test

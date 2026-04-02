@@ -1,6 +1,6 @@
-package com.esprit.campconnect.Promotion.DTO;
+package com.esprit.campconnect.Reservation.DTO;
 
-import com.esprit.campconnect.Promotion.Enum.PromotionDiscountType;
+import com.esprit.campconnect.Reservation.Enum.PromotionDiscountType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

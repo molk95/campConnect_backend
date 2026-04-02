@@ -11,12 +11,12 @@ import com.esprit.campconnect.Event.Enum.EventStatus;
 import com.esprit.campconnect.Event.Repository.EventImageRepository;
 import com.esprit.campconnect.Event.Repository.EventRepository;
 import com.esprit.campconnect.Event.Service.IEventService;
-import com.esprit.campconnect.Promotion.DTO.PromotionOfferResponseDTO;
-import com.esprit.campconnect.Promotion.DTO.PromotionPreviewDTO;
-import com.esprit.campconnect.Promotion.Service.PromotionOfferService;
 import com.esprit.campconnect.User.Entity.Role;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
+import com.esprit.campconnect.Reservation.DTO.PromotionOfferResponseDTO;
+import com.esprit.campconnect.Reservation.DTO.PromotionPreviewDTO;
+import com.esprit.campconnect.Reservation.Service.PromotionOfferService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -59,7 +59,7 @@ public class EventController {
     // ============== CRUD ENDPOINTS ==============
 
     @PostMapping("/createEvent")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Create new event", description = "Create a new event (organizers only)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Event created successfully"),
@@ -91,7 +91,7 @@ public class EventController {
     }
 
     @PutMapping("/updateEvent/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Update event", description = "Update event details (organizer or admin only)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Event updated successfully"),
@@ -118,7 +118,7 @@ public class EventController {
     }
 
     @DeleteMapping("/deleteEvent/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Delete event", description = "Delete an event (organizer or admin only)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Event deleted successfully"),
@@ -144,7 +144,7 @@ public class EventController {
     }
 
     @PutMapping("/{id}/publish")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Publish event", description = "Make an event visible on public event pages")
     public ResponseEntity<EventResponseDTO> publishEvent(@PathVariable Long id, Authentication authentication) {
         validateEventManagementAccess(id, authentication);
@@ -152,7 +152,7 @@ public class EventController {
     }
 
     @PutMapping("/{id}/unpublish")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Unpublish event", description = "Move an event back to draft mode")
     public ResponseEntity<EventResponseDTO> unpublishEvent(@PathVariable Long id, Authentication authentication) {
         validateEventManagementAccess(id, authentication);
@@ -160,7 +160,7 @@ public class EventController {
     }
 
     @PostMapping("/{id}/duplicate")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Duplicate recurring event", description = "Create weekly, monthly, or yearly copies of an event")
     public ResponseEntity<List<EventResponseDTO>> duplicateEvent(
             @PathVariable Long id,
@@ -304,7 +304,7 @@ public class EventController {
     // ============== STATUS MANAGEMENT ENDPOINTS ==============
 
     @PutMapping("/startEvent/{id}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Start event", description = "Change event status to ONGOING (admin only)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Event started"),
@@ -316,7 +316,7 @@ public class EventController {
     }
 
     @PutMapping("/completeEvent/{id}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Complete event", description = "Change event status to COMPLETED (admin only)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Event completed"),
@@ -328,7 +328,7 @@ public class EventController {
     }
 
     @PutMapping("/cancelEvent/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Cancel event", description = "Cancel an event")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Event cancelled"),
@@ -342,7 +342,7 @@ public class EventController {
     }
 
     @PutMapping("/postponeEvent/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Postpone event", description = "Postpone an event to new dates")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Event postponed"),
@@ -359,7 +359,7 @@ public class EventController {
     // ============== ANALYTICS ENDPOINTS ==============
 
     @GetMapping("/analytics/revenue/{id}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get event revenue", description = "Calculate total revenue for an event")
     @ApiResponse(responseCode = "200", description = "Total revenue amount")
     public ResponseEntity<Double> getEventRevenue(@PathVariable Long id) {
@@ -367,7 +367,7 @@ public class EventController {
     }
 
     @GetMapping("/analytics/organizer/{organizerId}/totalParticipants")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get organizer total participants")
     @ApiResponse(responseCode = "200", description = "Total participants across all events")
     public ResponseEntity<Integer> getTotalParticipantsForOrganizer(@PathVariable Long organizerId) {
@@ -375,7 +375,7 @@ public class EventController {
     }
 
     @GetMapping("/getByDateRange")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get events by date range")
     @ApiResponse(responseCode = "200", description = "List of events in date range")
     public ResponseEntity<List<EventResponseDTO>> getEventsBetweenDates(
@@ -440,7 +440,7 @@ public class EventController {
     }
 
     @DeleteMapping("/{eventId}/images/{imageId}")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Delete event image", description = "Remove a specific image from an event")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Image successfully deleted"),
@@ -455,7 +455,7 @@ public class EventController {
     }
 
     @PutMapping("/{eventId}/images/{imageId}/setAsPrimary")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Set image as primary", description = "Set an event image as the primary image")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Primary image updated"),

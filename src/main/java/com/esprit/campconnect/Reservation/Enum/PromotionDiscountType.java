@@ -1,4 +1,4 @@
-package com.esprit.campconnect.Promotion.Enum;
+package com.esprit.campconnect.Reservation.Enum;
 
 public enum PromotionDiscountType {
     PERCENTAGE,

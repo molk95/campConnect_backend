@@ -1,8 +1,8 @@
-package com.esprit.campconnect.Notification.Entity;
+package com.esprit.campconnect.Reservation.Entity;
 
 import com.esprit.campconnect.Event.Entity.Event;
-import com.esprit.campconnect.Notification.Enum.NotificationType;
 import com.esprit.campconnect.Reservation.Entity.Reservation;
+import com.esprit.campconnect.Reservation.Enum.NotificationType;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
