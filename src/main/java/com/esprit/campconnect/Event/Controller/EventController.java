@@ -1,8 +1,9 @@
 package com.esprit.campconnect.Event.Controller;
 
+import com.esprit.campconnect.Event.DTO.EventDuplicateRequestDTO;
+import com.esprit.campconnect.Event.DTO.EventImageDTO;
 import com.esprit.campconnect.Event.DTO.EventRequestDTO;
 import com.esprit.campconnect.Event.DTO.EventResponseDTO;
-import com.esprit.campconnect.Event.DTO.EventImageDTO;
 import com.esprit.campconnect.Event.Entity.Event;
 import com.esprit.campconnect.Event.Entity.EventImage;
 import com.esprit.campconnect.Event.Enum.EventCategory;
@@ -10,6 +11,9 @@ import com.esprit.campconnect.Event.Enum.EventStatus;
 import com.esprit.campconnect.Event.Repository.EventImageRepository;
 import com.esprit.campconnect.Event.Repository.EventRepository;
 import com.esprit.campconnect.Event.Service.IEventService;
+import com.esprit.campconnect.Promotion.DTO.PromotionOfferResponseDTO;
+import com.esprit.campconnect.Promotion.DTO.PromotionPreviewDTO;
+import com.esprit.campconnect.Promotion.Service.PromotionOfferService;
 import com.esprit.campconnect.User.Entity.Role;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
@@ -50,6 +54,7 @@ public class EventController {
     private final UtilisateurRepository utilisateurRepository;
     private final EventRepository eventRepository;
     private final EventImageRepository eventImageRepository;
+    private final PromotionOfferService promotionOfferService;
 
     // ============== CRUD ENDPOINTS ==============
 
@@ -73,15 +78,16 @@ public class EventController {
     @Operation(summary = "Get event by ID")
     @ApiResponse(responseCode = "200", description = "Event found")
     public ResponseEntity<EventResponseDTO> getEventById(
-            @Parameter(description = "Event ID") @PathVariable Long id) {
-        return ResponseEntity.ok(eventService.getEventById(id));
+            @Parameter(description = "Event ID") @PathVariable Long id,
+            Authentication authentication) {
+        return ResponseEntity.ok(requireVisibleEvent(id, authentication));
     }
 
     @GetMapping("/getAllEvents")
     @Operation(summary = "Get all events")
     @ApiResponse(responseCode = "200", description = "List of all events")
-    public ResponseEntity<List<EventResponseDTO>> getAllEvents() {
-        return ResponseEntity.ok(eventService.getAllEvents());
+    public ResponseEntity<List<EventResponseDTO>> getAllEvents(Authentication authentication) {
+        return ResponseEntity.ok(filterVisibleEvents(eventService.getAllEvents(), authentication));
     }
 
     @PutMapping("/updateEvent/{id}")
@@ -137,53 +143,113 @@ public class EventController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{id}/publish")
+    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @Operation(summary = "Publish event", description = "Make an event visible on public event pages")
+    public ResponseEntity<EventResponseDTO> publishEvent(@PathVariable Long id, Authentication authentication) {
+        validateEventManagementAccess(id, authentication);
+        return ResponseEntity.ok(eventService.publishEvent(id));
+    }
+
+    @PutMapping("/{id}/unpublish")
+    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @Operation(summary = "Unpublish event", description = "Move an event back to draft mode")
+    public ResponseEntity<EventResponseDTO> unpublishEvent(@PathVariable Long id, Authentication authentication) {
+        validateEventManagementAccess(id, authentication);
+        return ResponseEntity.ok(eventService.unpublishEvent(id));
+    }
+
+    @PostMapping("/{id}/duplicate")
+    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @Operation(summary = "Duplicate recurring event", description = "Create weekly, monthly, or yearly copies of an event")
+    public ResponseEntity<List<EventResponseDTO>> duplicateEvent(
+            @PathVariable Long id,
+            @Valid @RequestBody EventDuplicateRequestDTO requestDTO,
+            Authentication authentication) {
+        Utilisateur currentUser = validateEventManagementAccess(id, authentication);
+        List<EventResponseDTO> duplicates = eventService.duplicateEvent(id, requestDTO, currentUser.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(duplicates);
+    }
+
+    @GetMapping("/favorites/me")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get my favorite events")
+    public ResponseEntity<List<EventResponseDTO>> getMyFavoriteEvents(Authentication authentication) {
+        Utilisateur currentUser = getCurrentUser(authentication);
+        return ResponseEntity.ok(filterVisibleEvents(eventService.getFavoriteEvents(currentUser.getId()), authentication));
+    }
+
+    @PostMapping("/{eventId}/favorite")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Save event as favorite")
+    public ResponseEntity<Void> addFavorite(@PathVariable Long eventId, Authentication authentication) {
+        Utilisateur currentUser = getCurrentUser(authentication);
+        requireVisibleEvent(eventId, authentication);
+        eventService.addFavorite(eventId, currentUser.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @DeleteMapping("/{eventId}/favorite")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Remove saved event")
+    public ResponseEntity<Void> removeFavorite(@PathVariable Long eventId, Authentication authentication) {
+        Utilisateur currentUser = getCurrentUser(authentication);
+        eventService.removeFavorite(eventId, currentUser.getId());
+        return ResponseEntity.noContent().build();
+    }
+
     // ============== SEARCH & FILTER ENDPOINTS ==============
 
     @GetMapping("/getByOrganizer/{organizerId}")
     @Operation(summary = "Get events by organizer")
     @ApiResponse(responseCode = "200", description = "List of organizer's events")
     public ResponseEntity<List<EventResponseDTO>> getEventsByOrganizer(
-            @Parameter(description = "Organizer ID") @PathVariable Long organizerId) {
-        return ResponseEntity.ok(eventService.getEventsByOrganizer(organizerId));
+            @Parameter(description = "Organizer ID") @PathVariable Long organizerId,
+            Authentication authentication) {
+        return ResponseEntity.ok(filterVisibleEvents(eventService.getEventsByOrganizer(organizerId), authentication));
     }
 
     @GetMapping("/getByCategory/{categorie}")
     @Operation(summary = "Get events by category")
     @ApiResponse(responseCode = "200", description = "List of events by category")
     public ResponseEntity<List<EventResponseDTO>> getEventsByCategory(
-            @Parameter(description = "Event category") @PathVariable EventCategory categorie) {
-        return ResponseEntity.ok(eventService.getEventsByCategory(categorie));
+            @Parameter(description = "Event category") @PathVariable EventCategory categorie,
+            Authentication authentication) {
+        return ResponseEntity.ok(filterVisibleEvents(eventService.getEventsByCategory(categorie), authentication));
     }
 
     @GetMapping("/getByStatus/{statut}")
     @Operation(summary = "Get events by status")
     @ApiResponse(responseCode = "200", description = "List of events by status")
     public ResponseEntity<List<EventResponseDTO>> getEventsByStatus(
-            @Parameter(description = "Event status") @PathVariable EventStatus statut) {
-        return ResponseEntity.ok(eventService.getEventsByStatus(statut));
+            @Parameter(description = "Event status") @PathVariable EventStatus statut,
+            Authentication authentication) {
+        return ResponseEntity.ok(filterVisibleEvents(eventService.getEventsByStatus(statut), authentication));
     }
 
     @GetMapping("/getUpcoming")
     @Operation(summary = "Get upcoming events")
     @ApiResponse(responseCode = "200", description = "List of upcoming events")
-    public ResponseEntity<List<EventResponseDTO>> getUpcomingEvents() {
-        return ResponseEntity.ok(eventService.getUpcomingEvents());
+    public ResponseEntity<List<EventResponseDTO>> getUpcomingEvents(Authentication authentication) {
+        return ResponseEntity.ok(filterVisibleEvents(eventService.getUpcomingEvents(), authentication));
     }
 
     @GetMapping("/search")
     @Operation(summary = "Search events", description = "Search events by keyword in title or description")
     @ApiResponse(responseCode = "200", description = "Search results")
     public ResponseEntity<List<EventResponseDTO>> searchEvents(
-            @Parameter(description = "Search keyword") @RequestParam String keyword) {
-        return ResponseEntity.ok(eventService.searchEvents(keyword));
+            @Parameter(description = "Search keyword") @RequestParam String keyword,
+            Authentication authentication) {
+        return ResponseEntity.ok(filterVisibleEvents(eventService.searchEvents(keyword), authentication));
     }
 
     @GetMapping("/getByLocation")
     @Operation(summary = "Get events by location")
     @ApiResponse(responseCode = "200", description = "List of events in location")
     public ResponseEntity<List<EventResponseDTO>> getEventsByLocation(
-            @Parameter(description = "Location name") @RequestParam String lieu) {
-        return ResponseEntity.ok(eventService.getEventsByLocation(lieu));
+            @Parameter(description = "Location name") @RequestParam String lieu,
+            Authentication authentication) {
+        return ResponseEntity.ok(filterVisibleEvents(eventService.getEventsByLocation(lieu), authentication));
     }
 
     // ============== AVAILABILITY ENDPOINTS ==============
@@ -191,8 +257,8 @@ public class EventController {
     @GetMapping("/available")
     @Operation(summary = "Get available events", description = "Get events with available spots")
     @ApiResponse(responseCode = "200", description = "List of available events")
-    public ResponseEntity<List<EventResponseDTO>> getAvailableEvents() {
-        return ResponseEntity.ok(eventService.getAvailableEvents());
+    public ResponseEntity<List<EventResponseDTO>> getAvailableEvents(Authentication authentication) {
+        return ResponseEntity.ok(filterVisibleEvents(eventService.getAvailableEvents(), authentication));
     }
 
     @GetMapping("/availableSeats/{id}")
@@ -214,6 +280,25 @@ public class EventController {
     @ApiResponse(responseCode = "200", description = "Number of waitlist participants")
     public ResponseEntity<Long> getWaitlistCount(@PathVariable Long id) {
         return ResponseEntity.ok(eventService.getWaitlistCount(id));
+    }
+
+    @GetMapping("/promotions/active")
+    @Operation(summary = "Get public promotions", description = "List active and discoverable promo codes or auto-applied group offers")
+    @ApiResponse(responseCode = "200", description = "List of active promotions")
+    public ResponseEntity<List<PromotionOfferResponseDTO>> getPublicPromotions() {
+        return ResponseEntity.ok(promotionOfferService.getPublicActivePromotions());
+    }
+
+    @GetMapping("/pricing/preview")
+    @Operation(summary = "Preview discounted reservation price", description = "Preview the final reservation total after promo codes or auto group offers are applied")
+    @ApiResponse(responseCode = "200", description = "Pricing preview generated")
+    public ResponseEntity<PromotionPreviewDTO> previewReservationPricing(
+            @RequestParam Long eventId,
+            @RequestParam Integer numberOfParticipants,
+            @RequestParam(required = false) String promoCode) {
+        return ResponseEntity.ok(
+                promotionOfferService.previewReservationPricing(eventId, numberOfParticipants, promoCode)
+        );
     }
 
     // ============== STATUS MANAGEMENT ENDPOINTS ==============
@@ -443,7 +528,37 @@ public class EventController {
                 || user.getRole() == Role.GUIDE;
     }
 
-    private void validateEventImageManagementAccess(Long eventId, Authentication authentication) {
+    private EventResponseDTO requireVisibleEvent(Long eventId, Authentication authentication) {
+        EventResponseDTO event = eventService.getEventById(eventId);
+        if (Boolean.FALSE.equals(event.getPublished()) && !canAccessUnpublishedEvents(authentication)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found with id: " + eventId);
+        }
+        return event;
+    }
+
+    private List<EventResponseDTO> filterVisibleEvents(List<EventResponseDTO> events, Authentication authentication) {
+        if (canAccessUnpublishedEvents(authentication)) {
+            return events;
+        }
+
+        return events.stream()
+                .filter(event -> !Boolean.FALSE.equals(event.getPublished()))
+                .toList();
+    }
+
+    private boolean canAccessUnpublishedEvents(Authentication authentication) {
+        if (authentication == null) {
+            return false;
+        }
+
+        try {
+            return hasEventManagementRole(getCurrentUser(authentication));
+        } catch (ResponseStatusException exception) {
+            return false;
+        }
+    }
+
+    private Utilisateur validateEventManagementAccess(Long eventId, Authentication authentication) {
         Utilisateur currentUser = getCurrentUser(authentication);
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found with id: " + eventId));
@@ -453,8 +568,14 @@ public class EventController {
                 && event.getOrganizer().getId().equals(currentUser.getId());
 
         if (!isOrganizer && !hasEventManagementRole(currentUser)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized to manage images for this event");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized to manage this event");
         }
+
+        return currentUser;
+    }
+
+    private void validateEventImageManagementAccess(Long eventId, Authentication authentication) {
+        validateEventManagementAccess(eventId, authentication);
     }
 
     private byte[] loadImageBytes(EventImage eventImage) throws IOException {

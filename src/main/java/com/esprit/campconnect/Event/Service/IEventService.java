@@ -1,5 +1,6 @@
 package com.esprit.campconnect.Event.Service;
 
+import com.esprit.campconnect.Event.DTO.EventDuplicateRequestDTO;
 import com.esprit.campconnect.Event.DTO.EventImageDTO;
 import com.esprit.campconnect.Event.DTO.EventRequestDTO;
 import com.esprit.campconnect.Event.DTO.EventResponseDTO;
@@ -16,9 +17,16 @@ public interface IEventService {
     EventResponseDTO createEvent(EventRequestDTO eventDTO, Long organizerId);
     EventResponseDTO getEventById(Long id);
     List<EventResponseDTO> getAllEvents();
+    List<EventResponseDTO> getPublishedEvents();
     List<EventResponseDTO> getEventsByOrganizer(Long organizerId);
     EventResponseDTO updateEvent(Long id, EventRequestDTO eventDTO);
     void deleteEvent(Long id);
+    EventResponseDTO publishEvent(Long eventId);
+    EventResponseDTO unpublishEvent(Long eventId);
+    List<EventResponseDTO> duplicateEvent(Long sourceEventId, EventDuplicateRequestDTO requestDTO, Long organizerId);
+    void addFavorite(Long eventId, Long userId);
+    void removeFavorite(Long eventId, Long userId);
+    List<EventResponseDTO> getFavoriteEvents(Long userId);
 
     // Image management
     EventResponseDTO uploadEventImages(Long eventId, String bannerImage, String thumbnailImage, String galleryImages);

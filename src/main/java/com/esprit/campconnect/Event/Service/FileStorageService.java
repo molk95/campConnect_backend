@@ -33,6 +33,34 @@ public class FileStorageService {
         return storeFile(file, file.getBytes());
     }
 
+    public String storeFile(String originalFilename, byte[] fileBytes) throws IOException {
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new IllegalArgumentException("File is empty");
+        }
+
+        if (fileBytes.length > maxFileSize) {
+            throw new IllegalArgumentException(
+                    "File size exceeds maximum allowed size of "
+                            + (maxFileSize / BYTES_IN_MB) + "MB"
+            );
+        }
+
+        if (originalFilename == null || !isAllowedExtension(originalFilename)) {
+            throw new IllegalArgumentException("File type not allowed. Allowed types: jpg, jpeg, png, gif, webp");
+        }
+
+        Path uploadDirectory = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Files.createDirectories(uploadDirectory);
+
+        String fileExtension = getFileExtension(originalFilename);
+        String uniqueFilename = UUID.randomUUID() + "." + fileExtension;
+        Path filePath = uploadDirectory.resolve(uniqueFilename);
+        Files.write(filePath, fileBytes);
+
+        log.info("File stored successfully: {}", uniqueFilename);
+        return filePath.toString();
+    }
+
     /**
      * Store an uploaded file using already-read bytes and return its path
      */
