@@ -3,7 +3,6 @@ package com.esprit.campconnect.Reservation.Service;
 import com.esprit.campconnect.Event.Entity.Event;
 import com.esprit.campconnect.Reservation.Entity.Reservation;
 import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
-import com.esprit.campconnect.config.CalendarExportProperties;
 import com.esprit.campconnect.config.GoogleMapsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,8 +30,8 @@ public class ReservationCalendarService {
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss");
     private static final DateTimeFormatter ICS_UTC_FORMATTER =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
+    private static final ZoneId DEFAULT_ZONE_ID = ZoneId.of("Africa/Lagos");
 
-    private final CalendarExportProperties calendarExportProperties;
     private final GoogleMapsService googleMapsService;
 
     public boolean isCalendarExportAvailable(Reservation reservation) {
@@ -52,7 +51,7 @@ public class ReservationCalendarService {
         }
 
         Event event = reservation.getEvent();
-        ZoneId zoneId = calendarExportProperties.resolveZoneId();
+        ZoneId zoneId = DEFAULT_ZONE_ID;
         ZonedDateTime startDateTime = resolveStartDateTime(event, zoneId);
         ZonedDateTime endDateTime = resolveEndDateTime(event, zoneId, startDateTime);
 
@@ -70,7 +69,7 @@ public class ReservationCalendarService {
 
     public byte[] generateIcsInvite(Reservation reservation) {
         Event event = reservation.getEvent();
-        ZoneId zoneId = calendarExportProperties.resolveZoneId();
+        ZoneId zoneId = DEFAULT_ZONE_ID;
         ZonedDateTime startDateTime = resolveStartDateTime(event, zoneId);
         ZonedDateTime endDateTime = resolveEndDateTime(event, zoneId, startDateTime);
         ZonedDateTime startUtc = startDateTime.withZoneSameInstant(ZoneOffset.UTC);

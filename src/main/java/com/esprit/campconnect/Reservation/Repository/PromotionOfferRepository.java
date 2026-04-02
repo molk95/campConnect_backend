@@ -1,6 +1,6 @@
-package com.esprit.campconnect.Promotion.Repository;
+package com.esprit.campconnect.Reservation.Repository;
 
-import com.esprit.campconnect.Promotion.Entity.PromotionOffer;
+import com.esprit.campconnect.Reservation.Entity.PromotionOffer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

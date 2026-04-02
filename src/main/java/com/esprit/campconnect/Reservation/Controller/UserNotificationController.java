@@ -1,7 +1,7 @@
-package com.esprit.campconnect.Notification.Controller;
+package com.esprit.campconnect.Reservation.Controller;
 
-import com.esprit.campconnect.Notification.DTO.UserNotificationResponseDTO;
-import com.esprit.campconnect.Notification.Service.UserNotificationService;
+import com.esprit.campconnect.Reservation.DTO.UserNotificationResponseDTO;
+import com.esprit.campconnect.Reservation.Service.UserNotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,7 +23,7 @@ import java.util.Map;
 @RequestMapping("/notifications")
 @CrossOrigin("*")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+@PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
 @Tag(name = "Notifications", description = "Reservation notification center endpoints")
 public class UserNotificationController {
 

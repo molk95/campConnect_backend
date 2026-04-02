@@ -1,8 +1,8 @@
-package com.esprit.campconnect.Promotion.Service;
+package com.esprit.campconnect.Reservation.Service;
 
-import com.esprit.campconnect.Promotion.DTO.PromotionOfferRequestDTO;
-import com.esprit.campconnect.Promotion.Enum.PromotionDiscountType;
-import com.esprit.campconnect.Promotion.Repository.PromotionOfferRepository;
+import com.esprit.campconnect.Reservation.DTO.PromotionOfferRequestDTO;
+import com.esprit.campconnect.Reservation.Enum.PromotionDiscountType;
+import com.esprit.campconnect.Reservation.Repository.PromotionOfferRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;

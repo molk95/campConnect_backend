@@ -1,9 +1,9 @@
-package com.esprit.campconnect.Promotion.Controller;
+package com.esprit.campconnect.Reservation.Controller;
 
-import com.esprit.campconnect.Promotion.DTO.PromotionOfferRequestDTO;
-import com.esprit.campconnect.Promotion.DTO.PromotionOfferResponseDTO;
-import com.esprit.campconnect.Promotion.DTO.PromotionPreviewDTO;
-import com.esprit.campconnect.Promotion.Service.PromotionOfferService;
+import com.esprit.campconnect.Reservation.DTO.PromotionOfferRequestDTO;
+import com.esprit.campconnect.Reservation.DTO.PromotionOfferResponseDTO;
+import com.esprit.campconnect.Reservation.DTO.PromotionPreviewDTO;
+import com.esprit.campconnect.Reservation.Service.PromotionOfferService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,7 +52,7 @@ public class PromotionOfferController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "List all promotions", description = "Retrieve all promotion offers for administration")
     @ApiResponse(responseCode = "200", description = "List of promotions")
     public ResponseEntity<List<PromotionOfferResponseDTO>> getAllPromotions() {
@@ -60,7 +60,7 @@ public class PromotionOfferController {
     }
 
     @PostMapping("/admin")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Create promotion", description = "Create a new promo code or auto-applied discount")
     @ApiResponse(responseCode = "200", description = "Promotion created")
     public ResponseEntity<PromotionOfferResponseDTO> createPromotion(
@@ -69,7 +69,7 @@ public class PromotionOfferController {
     }
 
     @PutMapping("/admin/{promotionId}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Update promotion", description = "Update an existing promo code or discount campaign")
     @ApiResponse(responseCode = "200", description = "Promotion updated")
     public ResponseEntity<PromotionOfferResponseDTO> updatePromotion(

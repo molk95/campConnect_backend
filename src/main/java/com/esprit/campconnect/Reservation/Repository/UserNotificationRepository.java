@@ -1,6 +1,6 @@
-package com.esprit.campconnect.Notification.Repository;
+package com.esprit.campconnect.Reservation.Repository;
 
-import com.esprit.campconnect.Notification.Entity.UserNotification;
+import com.esprit.campconnect.Reservation.Entity.UserNotification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

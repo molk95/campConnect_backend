@@ -2,7 +2,6 @@ package com.esprit.campconnect.Reservation.Entity;
 
 import lombok.*;
 import com.esprit.campconnect.Event.Entity.Event;
-import com.esprit.campconnect.Promotion.Entity.PromotionOffer;
 import com.esprit.campconnect.Reservation.Enum.PaymentStatus;
 import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
 import com.esprit.campconnect.User.Entity.Utilisateur;

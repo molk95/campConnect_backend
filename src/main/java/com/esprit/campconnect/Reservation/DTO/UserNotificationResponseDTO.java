@@ -1,6 +1,6 @@
-package com.esprit.campconnect.Notification.DTO;
+package com.esprit.campconnect.Reservation.DTO;
 
-import com.esprit.campconnect.Notification.Enum.NotificationType;
+import com.esprit.campconnect.Reservation.Enum.NotificationType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

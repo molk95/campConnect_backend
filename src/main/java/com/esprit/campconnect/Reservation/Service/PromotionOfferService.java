@@ -1,13 +1,13 @@
-package com.esprit.campconnect.Promotion.Service;
+package com.esprit.campconnect.Reservation.Service;
 
 import com.esprit.campconnect.Event.Entity.Event;
 import com.esprit.campconnect.Event.Repository.EventRepository;
-import com.esprit.campconnect.Promotion.DTO.PromotionOfferRequestDTO;
-import com.esprit.campconnect.Promotion.DTO.PromotionOfferResponseDTO;
-import com.esprit.campconnect.Promotion.DTO.PromotionPreviewDTO;
-import com.esprit.campconnect.Promotion.Entity.PromotionOffer;
-import com.esprit.campconnect.Promotion.Enum.PromotionDiscountType;
-import com.esprit.campconnect.Promotion.Repository.PromotionOfferRepository;
+import com.esprit.campconnect.Reservation.DTO.PromotionOfferRequestDTO;
+import com.esprit.campconnect.Reservation.DTO.PromotionOfferResponseDTO;
+import com.esprit.campconnect.Reservation.DTO.PromotionPreviewDTO;
+import com.esprit.campconnect.Reservation.Entity.PromotionOffer;
+import com.esprit.campconnect.Reservation.Enum.PromotionDiscountType;
+import com.esprit.campconnect.Reservation.Repository.PromotionOfferRepository;
 import com.esprit.campconnect.Reservation.Repository.ReservationRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

@@ -1,6 +1,6 @@
-package com.esprit.campconnect.Promotion.DTO;
+package com.esprit.campconnect.Reservation.DTO;
 
-import com.esprit.campconnect.Promotion.Enum.PromotionDiscountType;
+import com.esprit.campconnect.Reservation.Enum.PromotionDiscountType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
