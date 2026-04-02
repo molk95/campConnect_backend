@@ -13,6 +13,7 @@ public interface IReservationService {
     ReservationResponseDTO createReservation(ReservationRequestDTO requestDTO);
     ReservationResponseDTO getReservationById(Long id);
     List<ReservationResponseDTO> getAllReservations();
+    List<ReservationResponseDTO> getReservationsForAuthenticatedUser(String requesterEmail);
     List<ReservationResponseDTO> getReservationsByUser(Long userId);
     List<ReservationResponseDTO> getReservationsByEvent(Long eventId);
     ReservationResponseDTO updateReservation(Long id, ReservationRequestDTO requestDTO);
@@ -28,6 +29,7 @@ public interface IReservationService {
     StripeCheckoutSessionResponseDTO createCheckoutSession(Long reservationId, String requesterEmail, boolean requesterIsAdmin);
     ReservationResponseDTO syncCheckoutSession(String sessionId, String requesterEmail, boolean requesterIsAdmin);
     byte[] generateReceiptPdf(Long reservationId, String requesterEmail, boolean requesterIsAdmin);
+    byte[] generateCalendarInvite(Long reservationId, String requesterEmail, boolean requesterIsAdmin);
     UserReservationStatsDTO getReservationStatsForUser(String requesterEmail);
     void handleStripeWebhook(String payload, String signatureHeader);
     void refundReservation(Long reservationId, String reason);

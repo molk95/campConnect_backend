@@ -2,6 +2,7 @@ package com.esprit.campconnect.Reservation.Entity;
 
 import lombok.*;
 import com.esprit.campconnect.Event.Entity.Event;
+import com.esprit.campconnect.Promotion.Entity.PromotionOffer;
 import com.esprit.campconnect.Reservation.Enum.PaymentStatus;
 import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
 import com.esprit.campconnect.User.Entity.Utilisateur;
@@ -32,12 +33,30 @@ public class Reservation {
     @JoinColumn(name = "event_id", nullable = false)
     private Event event;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promotion_offer_id")
+    private PromotionOffer promotionOffer;
+
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private ReservationStatus statut;
 
     @Column(nullable = false)
     private Integer nombreParticipants; // Number of participants in this reservation (1 or more)
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal basePriceTotal = BigDecimal.ZERO;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    private String promoCode;
+
+    @Column(length = 255)
+    private String discountLabel;
+
+    @Column(nullable = false)
+    private Boolean discountAutoApplied = false;
 
     @Column(nullable = false)
     private BigDecimal prixTotal; // Total price for all participants

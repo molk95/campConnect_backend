@@ -3,6 +3,7 @@ package com.esprit.campconnect.Event.Entity;
 import lombok.*;
 import com.esprit.campconnect.Event.Enum.EventCategory;
 import com.esprit.campconnect.Event.Enum.EventStatus;
+import com.esprit.campconnect.Event.Enum.RecurrenceFrequency;
 import com.esprit.campconnect.Reservation.Entity.Reservation;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -17,7 +18,7 @@ import java.util.Set;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@ToString(exclude = {"organizer", "reservations", "images"})
+@ToString(exclude = {"organizer", "reservations", "images", "favorites"})
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Event {
 
@@ -72,6 +73,16 @@ public class Event {
     @Column(nullable = false)
     private Integer dureeMinutes; // Event duration in minutes
 
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private Boolean published = true;
+
+    private LocalDateTime publishedAt;
+
+    private Long sourceEventId;
+
+    @Enumerated(EnumType.STRING)
+    private RecurrenceFrequency recurrenceFrequency;
+
     @Column(length = 500)
     private String bannerImage; // URL or path to banner/main image
 
@@ -97,6 +108,9 @@ public class Event {
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("displayOrder ASC")
     private Set<EventImage> images;
+
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<EventFavorite> favorites;
 
     // Helper method to get current participant count - SUM of all nombreParticipants for confirmed/paid
     public long getParticipantsCount() {
@@ -147,5 +161,9 @@ public class Event {
         int urgencyThreshold = Math.max(3, (int) Math.ceil(capacity * 0.15));
 
         return availableSeats > 0 && (availableSeats <= urgencyThreshold || getOccupancyRate() >= 0.8D);
+    }
+
+    public long getFavoriteCount() {
+        return favorites == null ? 0 : favorites.size();
     }
 }

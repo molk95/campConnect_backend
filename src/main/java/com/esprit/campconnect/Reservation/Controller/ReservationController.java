@@ -25,6 +25,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -41,6 +42,7 @@ public class ReservationController {
     // ============== CRUD ENDPOINTS ==============
 
     @PostMapping("/createReservation")
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Create reservation", description = "Create a new reservation for an event")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Reservation created successfully"),
@@ -50,18 +52,18 @@ public class ReservationController {
     public ResponseEntity<ReservationResponseDTO> createReservation(
             @Valid @RequestBody ReservationRequestDTO requestDTO,
             Authentication authentication) {
-        // Auto-populate utilisateurId from authentication if not provided
-        if (requestDTO.getUtilisateurId() == null && authentication != null) {
-            String email = authentication.getName();
-            Utilisateur user = utilisateurRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            requestDTO.setUtilisateurId(user.getId());
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        if (effectiveAuthentication == null || effectiveAuthentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user is required");
         }
-        
-        if (requestDTO.getUtilisateurId() == null) {
-            throw new RuntimeException("Unable to determine user ID");
+
+        Utilisateur authenticatedUser = utilisateurRepository.findByEmail(effectiveAuthentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (requestDTO.getUtilisateurId() == null || !isAdministrator(effectiveAuthentication)) {
+            requestDTO.setUtilisateurId(authenticatedUser.getId());
         }
-        
+
         ReservationResponseDTO createdReservation = reservationService.createReservation(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdReservation);
     }
@@ -83,6 +85,19 @@ public class ReservationController {
     @ApiResponse(responseCode = "200", description = "List of all reservations")
     public ResponseEntity<List<ReservationResponseDTO>> getAllReservations() {
         return ResponseEntity.ok(reservationService.getAllReservations());
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @Operation(summary = "Get my reservations", description = "Retrieve reservations for the authenticated user")
+    @ApiResponse(responseCode = "200", description = "List of the authenticated user's reservations")
+    public ResponseEntity<List<ReservationResponseDTO>> getMyReservations(Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        return ResponseEntity.ok(
+                reservationService.getReservationsForAuthenticatedUser(
+                        effectiveAuthentication != null ? effectiveAuthentication.getName() : null
+                )
+        );
     }
 
     @GetMapping("/getByUser/{userId}")
@@ -241,6 +256,31 @@ public class ReservationController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=reservation-" + id + "-receipt.pdf")
                 .body(receiptPdf);
+    }
+
+    @GetMapping("/{id}/calendar.ics")
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @Operation(summary = "Download reservation calendar invite", description = "Generate an .ics calendar file for an active reservation so guests can add it to Google Calendar, Apple Calendar, Outlook, or other calendar apps")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Calendar invite generated"),
+            @ApiResponse(responseCode = "403", description = "Reservation does not belong to the authenticated user"),
+            @ApiResponse(responseCode = "404", description = "Reservation not found"),
+            @ApiResponse(responseCode = "409", description = "Calendar export is not available for this reservation")
+    })
+    public ResponseEntity<byte[]> downloadReservationCalendarInvite(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        byte[] calendarInvite = reservationService.generateCalendarInvite(
+                id,
+                effectiveAuthentication != null ? effectiveAuthentication.getName() : null,
+                isAdministrator(effectiveAuthentication)
+        );
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/calendar; charset=UTF-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=reservation-" + id + "-calendar.ics")
+                .body(calendarInvite);
     }
 
     @GetMapping("/me/stats")

@@ -1,14 +1,19 @@
 package com.esprit.campconnect.Event.Service;
 
+import com.esprit.campconnect.Event.DTO.EventDuplicateRequestDTO;
 import com.esprit.campconnect.Event.DTO.EventImageDTO;
 import com.esprit.campconnect.Event.DTO.EventRequestDTO;
 import com.esprit.campconnect.Event.DTO.EventResponseDTO;
 import com.esprit.campconnect.Event.Entity.Event;
+import com.esprit.campconnect.Event.Entity.EventFavorite;
 import com.esprit.campconnect.Event.Entity.EventImage;
 import com.esprit.campconnect.Event.Enum.EventCategory;
 import com.esprit.campconnect.Event.Enum.EventStatus;
+import com.esprit.campconnect.Event.Enum.RecurrenceFrequency;
+import com.esprit.campconnect.Event.Repository.EventFavoriteRepository;
 import com.esprit.campconnect.Event.Repository.EventImageRepository;
 import com.esprit.campconnect.Event.Repository.EventRepository;
+import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import com.esprit.campconnect.config.GoogleMapsService;
@@ -26,6 +31,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -42,6 +50,7 @@ public class EventServiceImpl implements IEventService {
 
     private final EventRepository eventRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final EventFavoriteRepository eventFavoriteRepository;
     private final EventImageRepository eventImageRepository;
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
@@ -74,6 +83,7 @@ public class EventServiceImpl implements IEventService {
         event.setThumbnailImage(cleanImageInput(eventDTO.getThumbnailImage()));
         event.setGalleryImages(cleanImageInput(eventDTO.getGalleryImages()));
         event.setOrganizer(organizer);
+        applyPublicationState(event, eventDTO.getPublished(), true);
 
         Event savedEvent = eventRepository.save(event);
         log.info("Event created successfully with id: {}", savedEvent.getId());
@@ -98,6 +108,15 @@ public class EventServiceImpl implements IEventService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<EventResponseDTO> getPublishedEvents() {
+        log.info("Fetching published events");
+        return eventRepository.findByPublishedTrueOrderByDateDebutAsc().stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<EventResponseDTO> getEventsByOrganizer(Long organizerId) {
         log.info("Fetching events for organizer: {}", organizerId);
         return eventRepository.findByOrganizerId(organizerId).stream()
@@ -112,6 +131,14 @@ public class EventServiceImpl implements IEventService {
         Event event = getEventOrThrow(id);
         if (event.getStatut() == EventStatus.ONGOING || event.getStatut() == EventStatus.COMPLETED) {
             throw badRequest("Cannot update an event that is ongoing or completed");
+        }
+
+        boolean currentPublished = Boolean.TRUE.equals(event.getPublished());
+        boolean nextPublished = eventDTO.getPublished() != null
+                ? Boolean.TRUE.equals(eventDTO.getPublished())
+                : currentPublished;
+        if (currentPublished && !nextPublished) {
+            ensureCanMoveToDraft(event);
         }
 
         event.setTitre(eventDTO.getTitre());
@@ -142,6 +169,7 @@ public class EventServiceImpl implements IEventService {
             event.setGalleryImages(cleanImageInput(eventDTO.getGalleryImages()));
         }
 
+        applyPublicationState(event, eventDTO.getPublished(), currentPublished);
         event.setDateModification(LocalDateTime.now());
         Event updatedEvent = eventRepository.save(event);
         log.info("Event updated successfully");
@@ -159,6 +187,110 @@ public class EventServiceImpl implements IEventService {
 
         eventRepository.delete(event);
         log.info("Event deleted successfully");
+    }
+
+    @Override
+    public EventResponseDTO publishEvent(Long eventId) {
+        log.info("Publishing event with id: {}", eventId);
+
+        Event event = getEventOrThrow(eventId);
+        applyPublicationState(event, true, true);
+        event.setDateModification(LocalDateTime.now());
+        return mapToResponseDTO(eventRepository.save(event));
+    }
+
+    @Override
+    public EventResponseDTO unpublishEvent(Long eventId) {
+        log.info("Moving event {} to draft mode", eventId);
+
+        Event event = getEventOrThrow(eventId);
+        ensureCanMoveToDraft(event);
+        applyPublicationState(event, false, true);
+        event.setDateModification(LocalDateTime.now());
+        return mapToResponseDTO(eventRepository.save(event));
+    }
+
+    @Override
+    public List<EventResponseDTO> duplicateEvent(Long sourceEventId, EventDuplicateRequestDTO requestDTO, Long organizerId) {
+        log.info("Duplicating event {} with recurrence {}", sourceEventId, requestDTO != null ? requestDTO.getFrequency() : null);
+
+        if (requestDTO == null || requestDTO.getFrequency() == null || requestDTO.getOccurrences() == null) {
+            throw badRequest("Recurrence frequency and occurrences are required");
+        }
+
+        Event sourceEvent = getEventOrThrow(sourceEventId);
+        Utilisateur requestedOrganizer = utilisateurRepository.findById(organizerId)
+                .orElseThrow(() -> notFound("Organizer not found with id: " + organizerId));
+        Utilisateur copyOrganizer = sourceEvent.getOrganizer() != null ? sourceEvent.getOrganizer() : requestedOrganizer;
+
+        List<EventResponseDTO> duplicates = new ArrayList<>();
+        for (int occurrenceIndex = 1; occurrenceIndex <= requestDTO.getOccurrences(); occurrenceIndex++) {
+            Event duplicate = new Event();
+            duplicate.setTitre(buildRecurringTitle(sourceEvent.getTitre(), requestDTO.getFrequency(), occurrenceIndex));
+            duplicate.setDescription(sourceEvent.getDescription());
+            duplicate.setCategorie(sourceEvent.getCategorie());
+            duplicate.setStatut(EventStatus.SCHEDULED);
+            duplicate.setDateDebut(shiftRecurrenceDate(sourceEvent.getDateDebut(), requestDTO.getFrequency(), occurrenceIndex));
+            duplicate.setDateFin(shiftRecurrenceDate(sourceEvent.getDateFin(), requestDTO.getFrequency(), occurrenceIndex));
+            duplicate.setLieu(sourceEvent.getLieu());
+            duplicate.setLatitude(sourceEvent.getLatitude());
+            duplicate.setLongitude(sourceEvent.getLongitude());
+            duplicate.setGooglePlaceId(blankToNull(sourceEvent.getGooglePlaceId()));
+            duplicate.setCapaciteMax(sourceEvent.getCapaciteMax());
+            duplicate.setCapaciteWaitlist(resolveWaitlistCapacity(sourceEvent.getCapaciteWaitlist(), 10));
+            duplicate.setReservationApprovalRequired(resolveReservationApprovalRequired(sourceEvent.getReservationApprovalRequired(), true));
+            duplicate.setPrix(sourceEvent.getPrix());
+            duplicate.setDureeMinutes(sourceEvent.getDureeMinutes());
+            duplicate.setBannerImage(cleanImageInput(sourceEvent.getBannerImage()));
+            duplicate.setThumbnailImage(cleanImageInput(sourceEvent.getThumbnailImage()));
+            duplicate.setGalleryImages(cleanImageInput(sourceEvent.getGalleryImages()));
+            duplicate.setSourceEventId(sourceEvent.getId());
+            duplicate.setRecurrenceFrequency(requestDTO.getFrequency());
+            duplicate.setOrganizer(copyOrganizer);
+            applyPublicationState(duplicate, requestDTO.getPublishCopies(), false);
+
+            Event savedDuplicate = eventRepository.save(duplicate);
+            duplicateEventImages(sourceEvent, savedDuplicate);
+            duplicates.add(getEventById(savedDuplicate.getId()));
+        }
+
+        return duplicates;
+    }
+
+    @Override
+    public void addFavorite(Long eventId, Long userId) {
+        log.info("Adding favorite for user {} on event {}", userId, eventId);
+
+        if (eventFavoriteRepository.existsByUtilisateurIdAndEventId(userId, eventId)) {
+            return;
+        }
+
+        Utilisateur utilisateur = utilisateurRepository.findById(userId)
+                .orElseThrow(() -> notFound("User not found with id: " + userId));
+        Event event = getEventOrThrow(eventId);
+
+        EventFavorite favorite = new EventFavorite();
+        favorite.setUtilisateur(utilisateur);
+        favorite.setEvent(event);
+        favorite.setDateCreation(LocalDateTime.now());
+        eventFavoriteRepository.save(favorite);
+    }
+
+    @Override
+    public void removeFavorite(Long eventId, Long userId) {
+        log.info("Removing favorite for user {} on event {}", userId, eventId);
+        eventFavoriteRepository.deleteByUtilisateurIdAndEventId(userId, eventId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventResponseDTO> getFavoriteEvents(Long userId) {
+        log.info("Fetching favorite events for user {}", userId);
+        return eventFavoriteRepository.findByUtilisateurIdOrderByDateCreationDesc(userId).stream()
+                .map(EventFavorite::getEvent)
+                .filter(Objects::nonNull)
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -473,6 +605,10 @@ public class EventServiceImpl implements IEventService {
         dto.setCapaciteWaitlist(event.getCapaciteWaitlist());
         dto.setPrix(event.getPrix());
         dto.setDureeMinutes(event.getDureeMinutes());
+        dto.setPublished(Boolean.TRUE.equals(event.getPublished()));
+        dto.setPublishedAt(event.getPublishedAt());
+        dto.setSourceEventId(event.getSourceEventId());
+        dto.setRecurrenceFrequency(event.getRecurrenceFrequency());
         String googleMapsUrl = googleMapsService.buildGoogleMapsUrl(event);
         dto.setGoogleMapsUrl(googleMapsUrl);
         dto.setHasMapLocation(googleMapsUrl != null);
@@ -492,6 +628,7 @@ public class EventServiceImpl implements IEventService {
         dto.setIsFullyBooked(event.isFullyBooked());
         dto.setIsAlmostFull(event.isAlmostFull());
         dto.setOccupancyRate(event.getOccupancyRate());
+        dto.setFavoriteCount(event.getId() == null ? 0L : eventFavoriteRepository.countByEventId(event.getId()));
 
         List<EventImageDTO> imageDTOs = event.getId() == null
                 ? List.of()
@@ -571,6 +708,134 @@ public class EventServiceImpl implements IEventService {
 
     private Boolean resolveReservationApprovalRequired(Boolean requestedValue, boolean fallbackValue) {
         return requestedValue != null ? requestedValue : fallbackValue;
+    }
+
+    private void applyPublicationState(Event event, Boolean requestedPublished, boolean fallbackPublished) {
+        boolean shouldPublish = requestedPublished != null ? Boolean.TRUE.equals(requestedPublished) : fallbackPublished;
+        boolean wasPublished = Boolean.TRUE.equals(event.getPublished());
+        event.setPublished(shouldPublish);
+        if (shouldPublish) {
+            event.setPublishedAt(wasPublished && event.getPublishedAt() != null ? event.getPublishedAt() : LocalDateTime.now());
+        } else {
+            event.setPublishedAt(null);
+        }
+    }
+
+    private void ensureCanMoveToDraft(Event event) {
+        boolean hasBlockingReservations = event.getReservations() != null && event.getReservations().stream()
+                .anyMatch(reservation -> reservation.getStatut() != ReservationStatus.CANCELLED
+                        && reservation.getStatut() != ReservationStatus.REFUNDED);
+
+        if (hasBlockingReservations || event.getParticipantsCount() > 0 || event.getWaitlistCount() > 0) {
+            throw badRequest("This event already has active reservations or waitlist requests and cannot be moved back to draft");
+        }
+    }
+
+    private String buildRecurringTitle(String sourceTitle, RecurrenceFrequency frequency, int occurrenceIndex) {
+        String normalizedTitle = firstNonBlank(sourceTitle, "Event");
+        String label = switch (frequency) {
+            case MONTHLY -> "Monthly";
+            case YEARLY -> "Yearly";
+            case WEEKLY -> "Weekly";
+        };
+        return normalizedTitle + " (" + label + " " + occurrenceIndex + ")";
+    }
+
+    private LocalDateTime shiftRecurrenceDate(LocalDateTime baseDate, RecurrenceFrequency frequency, int occurrenceIndex) {
+        if (baseDate == null) {
+            return null;
+        }
+
+        return switch (frequency) {
+            case MONTHLY -> baseDate.plusMonths(occurrenceIndex);
+            case YEARLY -> baseDate.plusYears(occurrenceIndex);
+            case WEEKLY -> baseDate.plusWeeks(occurrenceIndex);
+        };
+    }
+
+    private void duplicateEventImages(Event sourceEvent, Event duplicateEvent) {
+        if (sourceEvent.getId() == null || duplicateEvent.getId() == null) {
+            return;
+        }
+
+        List<EventImage> sourceImages = getOrderedEventImages(sourceEvent.getId());
+        if (sourceImages.isEmpty()) {
+            return;
+        }
+
+        List<String> storedPaths = new ArrayList<>();
+        try {
+            for (EventImage sourceImage : sourceImages) {
+                byte[] imageBytes = readEventImageBytes(sourceImage);
+                String imageName = firstNonBlank(sourceImage.getImageName(), "event-image.jpg");
+                String storedPath = fileStorageService.storeFile(imageName, imageBytes);
+                storedPaths.add(storedPath);
+
+                EventImage duplicateImage = new EventImage();
+                duplicateImage.setEvent(duplicateEvent);
+                duplicateImage.setImageName(imageName);
+                duplicateImage.setImageUrl(storedPath);
+                duplicateImage.setImageData(Base64.getEncoder().encodeToString(imageBytes));
+                duplicateImage.setDescription(sourceImage.getDescription());
+                duplicateImage.setIsPrimary(Boolean.TRUE.equals(sourceImage.getIsPrimary()));
+                duplicateImage.setDisplayOrder(sourceImage.getDisplayOrder() != null ? sourceImage.getDisplayOrder() : 0);
+                duplicateImage.setMimeType(firstNonBlank(sourceImage.getMimeType(), "application/octet-stream"));
+                duplicateImage.setFileSize((long) imageBytes.length);
+                duplicateImage.setUploadDate(LocalDateTime.now());
+                duplicateImage.setLastModified(LocalDateTime.now());
+                eventImageRepository.save(duplicateImage);
+            }
+
+            syncEventImageReferences(duplicateEvent);
+        } catch (IllegalArgumentException exception) {
+            storedPaths.forEach(fileStorageService::deleteFile);
+            throw badRequest(exception.getMessage());
+        } catch (IOException exception) {
+            storedPaths.forEach(fileStorageService::deleteFile);
+            throw serverError("Failed to duplicate event images", exception);
+        }
+    }
+
+    private byte[] readEventImageBytes(EventImage eventImage) throws IOException {
+        if (hasText(eventImage.getImageData())) {
+            String payload = eventImage.getImageData();
+            int separatorIndex = payload.indexOf(',');
+            if (separatorIndex >= 0) {
+                payload = payload.substring(separatorIndex + 1);
+            }
+            return Base64.getDecoder().decode(payload);
+        }
+
+        if (!hasText(eventImage.getImageUrl())) {
+            throw new IOException("No image content available to duplicate");
+        }
+
+        Path imagePath = resolveStoredImagePath(eventImage.getImageUrl());
+        if (!Files.exists(imagePath)) {
+            throw new IOException("Stored image file not found: " + eventImage.getImageUrl());
+        }
+
+        return Files.readAllBytes(imagePath);
+    }
+
+    private Path resolveStoredImagePath(String imagePath) {
+        String normalizedPath = imagePath.replace('\\', '/').trim();
+        Path directPath = Paths.get(imagePath);
+        if (directPath.isAbsolute()) {
+            return directPath.normalize();
+        }
+
+        Path relativePath = Paths.get(normalizedPath);
+        if (Files.exists(relativePath)) {
+            return relativePath.normalize();
+        }
+
+        int uploadsIndex = normalizedPath.toLowerCase().indexOf("uploads/");
+        if (uploadsIndex >= 0) {
+            return Paths.get(normalizedPath.substring(uploadsIndex)).normalize();
+        }
+
+        return relativePath.normalize();
     }
 
     private void persistImages(Event event, List<MultipartFile> imageFiles, boolean makePrimary) {

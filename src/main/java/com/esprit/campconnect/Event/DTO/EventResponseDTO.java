@@ -2,6 +2,7 @@ package com.esprit.campconnect.Event.DTO;
 
 import com.esprit.campconnect.Event.Enum.EventCategory;
 import com.esprit.campconnect.Event.Enum.EventStatus;
+import com.esprit.campconnect.Event.Enum.RecurrenceFrequency;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -34,6 +35,10 @@ public class EventResponseDTO {
     private Boolean reservationApprovalRequired;
     private BigDecimal prix;
     private Integer dureeMinutes;
+    private Boolean published;
+    private LocalDateTime publishedAt;
+    private Long sourceEventId;
+    private RecurrenceFrequency recurrenceFrequency;
     private String bannerImage;
     private String thumbnailImage;
     private String galleryImages;
@@ -53,6 +58,7 @@ public class EventResponseDTO {
     private Boolean isFullyBooked;
     private Boolean isAlmostFull;
     private Double occupancyRate;
+    private Long favoriteCount;
     
     // Image gallery
     private List<EventImageDTO> images;

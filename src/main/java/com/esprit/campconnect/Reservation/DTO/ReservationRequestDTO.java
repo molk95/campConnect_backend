@@ -1,13 +1,13 @@
 package com.esprit.campconnect.Reservation.DTO;
 
-import com.esprit.campconnect.Reservation.Enum.PaymentStatus;
-import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -15,17 +15,19 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class ReservationRequestDTO {
 
-    @NotNull(message = "L'ID de l'utilisateur est requis")
     private Long utilisateurId;
 
-    @NotNull(message = "L'ID de l'événement est requis")
+    @NotNull(message = "Event ID is required")
     private Long eventId;
 
-    @NotNull(message = "Le nombre de participants est requis")
-    @Min(value = 1, message = "Au minimum 1 participant est requis")
-    @Max(value = 100, message = "Maximum 100 participants par réservation")
+    @NotNull(message = "Participant count is required")
+    @Min(value = 1, message = "At least 1 participant is required")
+    @Max(value = 100, message = "A reservation cannot exceed 100 participants")
     private Integer nombreParticipants;
 
-    @Size(max = 500, message = "Les remarques ne doivent pas dépasser 500 caractères")
+    @Size(max = 500, message = "Remarks cannot exceed 500 characters")
     private String remarques;
+
+    @Size(max = 64, message = "Promo code cannot exceed 64 characters")
+    private String promoCode;
 }
