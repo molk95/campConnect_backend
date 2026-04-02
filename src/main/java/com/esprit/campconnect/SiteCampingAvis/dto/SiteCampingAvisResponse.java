@@ -19,4 +19,7 @@ public class SiteCampingAvisResponse {
     String commentaire;
     LocalDate dateCreation;
     Long siteId;
+
+    Long utilisateurId;
+    String utilisateurEmail;
 }
