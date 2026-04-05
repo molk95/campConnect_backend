@@ -17,4 +17,7 @@ public interface ProduitService {
     void deleteProduit(Long id);
 
     List<Produit> getProduitsByCategory(Categorie categorie);
+
+    void desactiverProduit(Long id);
+    void activerProduit(Long id);
 }
