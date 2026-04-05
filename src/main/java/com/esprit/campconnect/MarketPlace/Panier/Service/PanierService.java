@@ -15,4 +15,6 @@ public interface PanierService {
     Panier updatePanier(Long id, Panier panier);
 
     void deletePanier(Long id);
+
+    Panier getOrCreatePanierEnCours(Long utilisateurId);
 }
