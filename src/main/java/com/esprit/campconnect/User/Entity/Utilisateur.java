@@ -1,5 +1,6 @@
 package com.esprit.campconnect.User.Entity;
 
+import com.esprit.campconnect.Assurance.Entity.SouscriptionAssurance;
 import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 import com.esprit.campconnect.SiteCampingAvis.entity.SiteCampingAvis;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
@@ -54,6 +55,10 @@ public class Utilisateur implements UserDetails {
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "profil_id")
     Profil profil;
+
+    @OneToMany(mappedBy = "utilisateur", cascade = CascadeType.ALL)
+    List<SouscriptionAssurance> souscriptionsAssurance;
+
 
     @OneToMany(mappedBy = "utilisateur")
     @JsonIgnore
