@@ -1,9 +1,9 @@
 package com.esprit.campconnect.InscriptionSite.controller;
 
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCreateRequest;
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteResponse;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteUpdateRequest;
 import com.esprit.campconnect.InscriptionSite.service.IInscriptionSiteService;
-import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -16,17 +16,18 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/inscriptionsite")
 public class InscriptionSiteController {
+
     private final IInscriptionSiteService iInscriptionSiteService;
 
     @Operation(description = "Récupérer une inscription site")
     @GetMapping("/{idInscription}")
-    public InscriptionSite getInscriptionSite(@PathVariable Long idInscription) {
+    public InscriptionSiteResponse getInscriptionSite(@PathVariable Long idInscription) {
         return iInscriptionSiteService.getInscriptionSiteById(idInscription);
     }
 
     @Operation(description = "Ajouter une inscription site")
     @PostMapping("/add")
-    public InscriptionSite addInscriptionSite(@RequestBody InscriptionSiteCreateRequest request) {
+    public InscriptionSiteResponse addInscriptionSite(@RequestBody InscriptionSiteCreateRequest request) {
         return iInscriptionSiteService.addInscriptionSite(request);
     }
 
@@ -38,13 +39,13 @@ public class InscriptionSiteController {
 
     @Operation(description = "Récupérer toutes les inscriptions site")
     @GetMapping("/getAll")
-    public List<InscriptionSite> getAll() {
+    public List<InscriptionSiteResponse> getAll() {
         return iInscriptionSiteService.getAllInscriptionSites();
     }
 
     @Operation(description = "Mise à jour partielle d'une inscription site")
     @PatchMapping("/update/{idInscription}")
-    public InscriptionSite patchInscriptionSite(
+    public InscriptionSiteResponse patchInscriptionSite(
             @PathVariable Long idInscription,
             @RequestBody InscriptionSiteUpdateRequest request) {
 
@@ -53,19 +54,25 @@ public class InscriptionSiteController {
 
     @Operation(description = "Récupérer les inscriptions d'un site camping")
     @GetMapping("/bySite/{idSite}")
-    public List<InscriptionSite> getBySite(@PathVariable Long idSite) {
+    public List<InscriptionSiteResponse> getBySite(@PathVariable Long idSite) {
         return iInscriptionSiteService.getBySiteCamping(idSite);
     }
 
     @Operation(description = "Confirmer une inscription site")
     @PatchMapping("/confirm/{idInscription}")
-    public InscriptionSite confirmInscriptionSite(@PathVariable Long idInscription) {
+    public InscriptionSiteResponse confirmInscriptionSite(@PathVariable Long idInscription) {
         return iInscriptionSiteService.confirmInscriptionSite(idInscription);
     }
 
     @Operation(description = "Annuler une inscription site")
     @PatchMapping("/cancel/{idInscription}")
-    public InscriptionSite cancelInscriptionSite(@PathVariable Long idInscription) {
+    public InscriptionSiteResponse cancelInscriptionSite(@PathVariable Long idInscription) {
         return iInscriptionSiteService.cancelInscriptionSite(idInscription);
+    }
+
+    @Operation(description = "Récupérer mes inscriptions")
+    @GetMapping("/my-inscriptions")
+    public List<InscriptionSiteResponse> getMyInscriptions() {
+        return iInscriptionSiteService.getMyInscriptions();
     }
 }

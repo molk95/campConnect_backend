@@ -2,6 +2,8 @@ package com.esprit.campconnect.siteCamping.service;
 
 import com.esprit.campconnect.InscriptionSite.entity.StatutInscription;
 import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteRepository;
+import com.esprit.campconnect.User.Entity.Utilisateur;
+import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import com.esprit.campconnect.common.ICloudinaryService;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
@@ -10,6 +12,8 @@ import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.esprit.campconnect.siteCamping.entity.StatutDispo;
 import com.esprit.campconnect.siteCamping.repository.SiteCampingRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,9 +26,19 @@ public class SiteCampingServiceImp implements ISiteCampingService {
     private final SiteCampingRepository siteCampingRepository;
     private final ICloudinaryService cloudinaryService;
     private final InscriptionSiteRepository inscriptionSiteRepository;
+    private final UtilisateurRepository utilisateurRepository;
+
+
+    private Utilisateur getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        return utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable"));
+    }
 
     @Override
-    public SiteCamping patchSiteCamping(Long idSite, SiteCampingUpdateRequest updatedData) {
+    public SiteCampingResponse patchSiteCamping(Long idSite, SiteCampingUpdateRequest updatedData) {
         SiteCamping existing = siteCampingRepository.findById(idSite)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "SiteCamping not found with id: " + idSite));
@@ -57,7 +71,7 @@ public class SiteCampingServiceImp implements ISiteCampingService {
             existing.setImagePublicId(uploadResult.get("imagePublicId"));
         }
 
-        return siteCampingRepository.save(existing);
+        return mapToResponse(siteCampingRepository.save(existing));
     }
 
     @Override
@@ -80,11 +94,17 @@ public class SiteCampingServiceImp implements ISiteCampingService {
         Integer confirmedGuests = inscriptionSiteRepository
                 .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
 
+        if (confirmedGuests == null) {
+            confirmedGuests = 0;
+        }
+
         return site.getCapacite() - confirmedGuests;
     }
 
     private SiteCampingResponse mapToResponse(SiteCamping site) {
+
         SiteCampingResponse response = new SiteCampingResponse();
+
         response.setIdSite(site.getIdSite());
         response.setNom(site.getNom());
         response.setLocalisation(site.getLocalisation());
@@ -96,10 +116,15 @@ public class SiteCampingServiceImp implements ISiteCampingService {
         response.setImagePublicId(site.getImagePublicId());
         response.setStatutDispo(site.getStatutDispo());
 
+        if (site.getOwner() != null) {
+            response.setOwnerId(site.getOwner().getId());
+            response.setOwnerEmail(site.getOwner().getEmail());
+        }
+
         return response;
     }
 
-    @Override
+    /*@Override
     public void deleteSiteCamping(Long idSite) {
         SiteCamping existing = siteCampingRepository.findById(idSite)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -110,10 +135,10 @@ public class SiteCampingServiceImp implements ISiteCampingService {
         }
 
         siteCampingRepository.delete(existing);
-    }
+    }*/
 
     @Override
-    public SiteCamping addSiteCamping(SiteCampingCreateRequest request) {
+    public SiteCampingResponse addSiteCamping(SiteCampingCreateRequest request) {
         Map<String, String> uploadResult = cloudinaryService.uploadImage(request.getImage());
 
         SiteCamping siteCamping = new SiteCamping();
@@ -127,11 +152,13 @@ public class SiteCampingServiceImp implements ISiteCampingService {
         siteCamping.setImageUrl(uploadResult.get("imageUrl"));
         siteCamping.setImagePublicId(uploadResult.get("imagePublicId"));
 
-        return siteCampingRepository.save(siteCamping);
+        siteCamping.setOwner(getCurrentUser());
+
+        return mapToResponse(siteCampingRepository.save(siteCamping));
     }
 
     @Override
-    public SiteCamping closeSiteCamping(Long idSite) {
+    public SiteCampingResponse closeSiteCamping(Long idSite) {
         SiteCamping site = siteCampingRepository.findById(idSite)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "SiteCamping not found with id: " + idSite));
@@ -142,6 +169,15 @@ public class SiteCampingServiceImp implements ISiteCampingService {
 
         site.setStatutDispo(StatutDispo.CLOSED);
 
-        return siteCampingRepository.save(site);
+        return mapToResponse(siteCampingRepository.save(site));
+    }
+
+    public List<SiteCampingResponse> getMySites() {
+        Utilisateur currentUser = getCurrentUser();
+
+        return siteCampingRepository.findByOwner_Id(currentUser.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 }

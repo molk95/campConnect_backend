@@ -10,14 +10,15 @@ import java.util.List;
 
 public interface ISiteCampingService {
 
-    SiteCamping patchSiteCamping(Long idSite, SiteCampingUpdateRequest updatedData);
+    SiteCampingResponse patchSiteCamping(Long idSite, SiteCampingUpdateRequest updatedData);
 
     SiteCampingResponse getSiteCampingById(Long idSite);
 
     List<SiteCampingResponse> getAllSiteCampings();
 
-    void deleteSiteCamping(Long idSite);
+    SiteCampingResponse addSiteCamping(SiteCampingCreateRequest request);
 
-    SiteCamping addSiteCamping(SiteCampingCreateRequest request);
-    SiteCamping closeSiteCamping(Long idSite);
+    SiteCampingResponse closeSiteCamping(Long idSite); // ✅ FIXED
+
+    List<SiteCampingResponse> getMySites();
 }

@@ -130,6 +130,103 @@ ALTER TABLE `site_camping`
 --
 ALTER TABLE `inscription_site`
   ADD CONSTRAINT `FKd8ad4p0swr1i7lhnx868p3vr6` FOREIGN KEY (`site_camping_id_site`) REFERENCES `site_camping` (`id_site`);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `event`
+--
+
+CREATE TABLE `event` (
+  `id` bigint NOT NULL,
+  `titre` varchar(255) NOT NULL,
+  `description` longtext,
+  `categorie` enum('GUIDED_TOUR','CAMPING_ACTIVITY','WORKSHOP','WELLNESS','RESTORATION','SOCIAL_EVENT','ADVENTURE','EDUCATIONAL') NOT NULL,
+  `statut` enum('SCHEDULED','ONGOING','COMPLETED','CANCELLED','POSTPONED') NOT NULL,
+  `date_debut` datetime NOT NULL,
+  `date_fin` datetime NOT NULL,
+  `lieu` varchar(255) NOT NULL,
+  `capacite_max` int NOT NULL,
+  `capacite_waitlist` int NOT NULL DEFAULT 10,
+  `prix` decimal(10,2) NOT NULL,
+  `duree_minutes` int NOT NULL,
+  `organisateur_id` bigint NOT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Table structure for table `reservation`
+--
+
+CREATE TABLE `reservation` (
+  `id` bigint NOT NULL,
+  `utilisateur_id` bigint NOT NULL,
+  `event_id` bigint NOT NULL,
+  `statut` enum('PENDING','CONFIRMED','PAID','NO_SHOW','CANCELLED','REFUNDED') NOT NULL,
+  `nombre_participants` int NOT NULL,
+  `prix_total` decimal(10,2) NOT NULL,
+  `est_en_attente` boolean NOT NULL DEFAULT false,
+  `statut_paiement` enum('UNPAID','PENDING','PAID','FAILED','REFUNDED') NOT NULL DEFAULT 'UNPAID',
+  `remarques` longtext,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `date_paiement` datetime,
+  `transaction_id` varchar(255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `event`
+--
+ALTER TABLE `event`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `FK_event_organisateur` (`organisateur_id`);
+
+--
+-- Indexes for table `reservation`
+--
+ALTER TABLE `reservation`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `FK_reservation_utilisateur` (`utilisateur_id`),
+  ADD KEY `FK_reservation_event` (`event_id`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `event`
+--
+ALTER TABLE `event`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
+
+--
+-- AUTO_INCREMENT for table `reservation`
+--
+ALTER TABLE `reservation`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `event`
+--
+ALTER TABLE `event`
+  ADD CONSTRAINT `FK_event_organisateur` FOREIGN KEY (`organisateur_id`) REFERENCES `utilisateur` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+--
+-- Constraints for table `reservation`
+--
+ALTER TABLE `reservation`
+  ADD CONSTRAINT `FK_reservation_utilisateur` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateur` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `FK_reservation_event` FOREIGN KEY (`event_id`) REFERENCES `event` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

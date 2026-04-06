@@ -4,5 +4,6 @@ public enum Categorie {
     TENTE,
     RECHAUD,
     VETEMENT,
+    CHAUSSURE,
     CUISINE
 }

@@ -1,5 +1,6 @@
 package com.esprit.campconnect.SiteCampingAvis.entity;
 
+import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -33,6 +34,11 @@ public class SiteCampingAvis {
     @ManyToOne
     @JoinColumn(name = "site_camping_id_site")
     SiteCamping siteCamping;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "utilisateur_id", nullable = false)
+    @JsonIgnore
+    Utilisateur utilisateur;
 
     @PrePersist
     public void onCreate() {

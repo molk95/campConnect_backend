@@ -20,4 +20,7 @@ public class SiteCampingAvisAdminResponse {
     LocalDate dateCreation;
     Long siteId;
     String siteNom;
+
+    Long utilisateurId;
+    String utilisateurEmail;
 }
