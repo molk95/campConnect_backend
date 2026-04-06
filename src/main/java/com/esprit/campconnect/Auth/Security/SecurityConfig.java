@@ -31,19 +31,26 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
+                                "/user/**",
                                 "/auth/login",
                                 "/auth/register",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/site-camping/**",
-                                "/site-camping-avis/**",
                                 "/inscriptionsite/**",
+                                "/swagger-ui.html",
                                 "/reclamations/**",
                                 "/repas/**",
-                                "/commandes-repas/**"
-
+                                "/commandes-repas/**",
+                                "/produits/**",
+                                "/detail-panier/**",
+                                "/paniers/**",
+                                "/commandes/**",
+                                "/details-commandes/**",
+                                "/uploads/**"
                         ).permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMINISTRATEUR")
                         .anyRequest().authenticated()
                 )
