@@ -1,5 +1,6 @@
 package com.esprit.campconnect.User.Entity;
 
+import com.esprit.campconnect.Assurance.Entity.SouscriptionAssurance;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -49,6 +50,11 @@ public class Utilisateur implements UserDetails {
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "profil_id")
     Profil profil;
+
+    @OneToMany(mappedBy = "utilisateur", cascade = CascadeType.ALL)
+    List<SouscriptionAssurance> souscriptionsAssurance;
+
+
 
     @PrePersist
     protected void onCreate() {
