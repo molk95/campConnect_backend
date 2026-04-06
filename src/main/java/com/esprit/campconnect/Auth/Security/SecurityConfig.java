@@ -1,5 +1,6 @@
 package com.esprit.campconnect.Auth.Security;
 
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,6 +10,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -18,6 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @RequiredArgsConstructor
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
@@ -29,7 +32,9 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(
                                 "/user/**",
                                 "/auth/login",
@@ -37,9 +42,12 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
+                                "/config/**",
+                                "/api/config/**",
+                                "/events/**",
                                 "/site-camping/**",
+                                "/site-camping-avis/**",
                                 "/inscriptionsite/**",
-                                "/swagger-ui.html",
                                 "/reclamations/**",
                                 "/repas/**",
                                 "/commandes-repas/**",
@@ -50,6 +58,7 @@ public class SecurityConfig {
                                 "/details-commandes/**",
                                 "/uploads/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMINISTRATEUR")
                         .anyRequest().authenticated()
