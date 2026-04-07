@@ -1,37 +1,43 @@
 package com.esprit.campconnect.InscriptionSite.entity;
 
+import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import org.springframework.data.annotation.Id;
-
 import java.time.LocalDate;
 
+
+import jakarta.persistence.*;
+
+@Entity
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@ToString
+@ToString(exclude = {"siteCamping", "utilisateur"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
-
-@Entity
 public class InscriptionSite {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @jakarta.persistence.Id
     Long idInscription;
 
     LocalDate dateDebut;
+    LocalDate dateFin;
+    Integer numberOfGuests;
 
-    LocalDate  dateFin;
-    int numberOfGuests;
     @Enumerated(EnumType.STRING)
     StatutInscription statut;
 
-    @ToString.Exclude
-    @ManyToOne
-    @JoinColumn(name = "site_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "site_id", nullable = false)
+    @JsonIgnore
     SiteCamping siteCamping;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "utilisateur_id", nullable = false)
+    @JsonIgnore
+    Utilisateur utilisateur;
 }

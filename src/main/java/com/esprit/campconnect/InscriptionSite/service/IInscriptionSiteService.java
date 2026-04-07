@@ -1,20 +1,29 @@
 package com.esprit.campconnect.InscriptionSite.service;
 
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCreateRequest;
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteResponse;
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteUpdateRequest;
 import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 
 import java.util.List;
 
 public interface IInscriptionSiteService {
-    InscriptionSite addInscriptionSite(InscriptionSite inscriptionSite);
 
-    InscriptionSite patchInscriptionSite(Long idInscription, InscriptionSite updatedData);
+    InscriptionSiteResponse addInscriptionSite(InscriptionSiteCreateRequest request);
 
-    InscriptionSite getInscriptionSiteById(Long idInscription);
+    InscriptionSiteResponse patchInscriptionSite(Long idInscription, InscriptionSiteUpdateRequest request);
 
-    List<InscriptionSite> getAllInscriptionSites();
+    InscriptionSiteResponse getInscriptionSiteById(Long idInscription);
+
+    List<InscriptionSiteResponse> getAllInscriptionSites();
 
     void deleteInscriptionSite(Long idInscription);
 
-    // optional
-    List<InscriptionSite> getBySiteCamping(Long idSite);
+    List<InscriptionSiteResponse> getBySiteCamping(Long idSite);
+
+    InscriptionSiteResponse confirmInscriptionSite(Long idInscription);
+
+    InscriptionSiteResponse cancelInscriptionSite(Long idInscription);
+
+    List<InscriptionSiteResponse> getMyInscriptions();
 }
