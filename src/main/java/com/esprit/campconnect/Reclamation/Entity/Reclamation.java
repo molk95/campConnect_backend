@@ -2,15 +2,18 @@ package com.esprit.campconnect.Reclamation.Entity;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 public class Reclamation {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         private Long id;
-
+    private String image;
         private String description;
+    private boolean acceptationDeclaration;
 
+    private LocalDateTime dateAcceptation;
         private LocalDate dateCreation;
 
         @Enumerated(EnumType.STRING)
@@ -45,4 +48,29 @@ public class Reclamation {
 
         public Utilisateur getUtilisateur() { return utilisateur; }
         public void setUtilisateur(Utilisateur utilisateur) { this.utilisateur = utilisateur; }
+    public boolean isAcceptationDeclaration() {
+        return acceptationDeclaration;
     }
+
+    public void setAcceptationDeclaration(boolean acceptationDeclaration) {
+        this.acceptationDeclaration = acceptationDeclaration;
+    }
+
+    public LocalDateTime getDateAcceptation() {
+        return dateAcceptation;
+    }
+
+    public void setDateAcceptation(LocalDateTime dateAcceptation) {
+        this.dateAcceptation = dateAcceptation;
+    }
+
+    public String getImage() {
+        return image;
+    }
+
+    public void setImage(String image) {
+        this.image = image;
+    }
+
+
+}
