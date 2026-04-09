@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -26,4 +27,18 @@ public interface InscriptionSiteRepository extends JpaRepository<InscriptionSite
 
     List<InscriptionSite> findByUtilisateur_Id(Long utilisateurId);
 
+    @Query("""
+       SELECT COALESCE(SUM(i.numberOfGuests), 0)
+       FROM InscriptionSite i
+       WHERE i.siteCamping.idSite = :siteId
+       AND i.statut = :statut
+       AND i.dateDebut < :dateFin
+       AND i.dateFin > :dateDebut
+       """)
+    Integer sumGuestsBySiteAndStatutAndDateOverlap(@Param("siteId") Long siteId,
+                                                   @Param("statut") StatutInscription statut,
+                                                   @Param("dateDebut") LocalDate dateDebut,
+                                                   @Param("dateFin") LocalDate dateFin);
+
+    List<InscriptionSite> findBySiteCamping_Owner_Id(Long ownerId);
 }
