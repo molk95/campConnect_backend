@@ -51,6 +51,8 @@ services:
       GOOGLE_MAPS_STATIC_MAP_WIDTH: ${GOOGLE_MAPS_STATIC_MAP_WIDTH:-900}
       GOOGLE_MAPS_STATIC_MAP_HEIGHT: ${GOOGLE_MAPS_STATIC_MAP_HEIGHT:-420}
       GOOGLE_MAPS_STATIC_MAP_ZOOM: ${GOOGLE_MAPS_STATIC_MAP_ZOOM:-14}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASS: ${MAIL_PASS:-}
     restart: always
     volumes:
       - backend_uploads:/app/uploads
