@@ -1,7 +1,6 @@
 package com.esprit.campconnect.Auth.Controller;
 
 import com.esprit.campconnect.Auth.DTO.CurrentUserDTO;
-import com.esprit.campconnect.User.DTO.ProfilDTO;
 import com.esprit.campconnect.User.Entity.Profil;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
@@ -43,6 +42,7 @@ public class AuthProfileController {
         }
 
         return new CurrentUserDTO(
+                utilisateur.getId(),
                 utilisateur.getNom(),
                 utilisateur.getEmail(),
                 utilisateur.getTelephone(),
@@ -52,5 +52,4 @@ public class AuthProfileController {
                 profil.getBiographie()
         );
     }
-
 }
