@@ -1,5 +1,6 @@
 package com.esprit.campconnect.InscriptionSite.controller;
 
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionCheckoutResponse;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCreateRequest;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteResponse;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteUpdateRequest;
@@ -7,6 +8,9 @@ import com.esprit.campconnect.InscriptionSite.service.IInscriptionSiteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,8 +31,25 @@ public class InscriptionSiteController {
 
     @Operation(description = "Ajouter une inscription site")
     @PostMapping("/add")
-    public InscriptionSiteResponse addInscriptionSite(@RequestBody InscriptionSiteCreateRequest request) {
+    public InscriptionCheckoutResponse addInscriptionSite(@RequestBody InscriptionSiteCreateRequest request) {
         return iInscriptionSiteService.addInscriptionSite(request);
+    }
+
+    @PatchMapping("/confirm-payment/{idInscription}")
+    public InscriptionSiteResponse confirmPayment(@PathVariable Long idInscription) {
+        return iInscriptionSiteService.confirmPayment(idInscription);
+    }
+
+
+    @Operation(description = "Télécharger le ticket PDF d'une inscription")
+    @GetMapping("/ticket/{idInscription}")
+    public ResponseEntity<byte[]> downloadTicket(@PathVariable Long idInscription) {
+        byte[] pdf = iInscriptionSiteService.generateTicket(idInscription);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=ticket-" + idInscription + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     @Operation(description = "Supprimer une inscription site")
@@ -74,5 +95,11 @@ public class InscriptionSiteController {
     @GetMapping("/my-inscriptions")
     public List<InscriptionSiteResponse> getMyInscriptions() {
         return iInscriptionSiteService.getMyInscriptions();
+    }
+
+    @Operation(description = "Récupérer les réservations des camps du guide connecté")
+    @GetMapping("/my-camp-booking-list")
+    public List<InscriptionSiteResponse> getMyCampBookingList() {
+        return iInscriptionSiteService.getMyCampBookingList();
     }
 }
