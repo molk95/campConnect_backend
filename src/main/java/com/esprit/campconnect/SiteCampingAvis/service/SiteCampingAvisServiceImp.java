@@ -1,9 +1,6 @@
 package com.esprit.campconnect.SiteCampingAvis.service;
 
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisAdminResponse;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisCreateRequest;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisResponse;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisUpdateRequest;
+import com.esprit.campconnect.SiteCampingAvis.dto.*;
 import com.esprit.campconnect.SiteCampingAvis.entity.SiteCampingAvis;
 import com.esprit.campconnect.SiteCampingAvis.repository.SiteCampingAvisRepository;
 import com.esprit.campconnect.User.Entity.Utilisateur;
@@ -165,5 +162,33 @@ public class SiteCampingAvisServiceImp implements ISiteCampingAvisService {
                 .stream()
                 .map(this::mapToAdminResponse)
                 .toList();
+    }
+
+    @Override
+    public List<SiteCampingAvisAdminResponse> getMyCampAvis() {
+        Utilisateur currentUser = getCurrentUser();
+
+        return siteCampingAvisRepository.findBySiteCamping_Owner_Id(currentUser.getId())
+                .stream()
+                .map(this::mapToAdminResponse)
+                .toList();
+    }
+
+    @Override
+    public SiteCampingRatingResponse getAverageRatingBySite(Long siteId) {
+        if (!siteCampingRepository.existsById(siteId)) {
+            throw new RuntimeException("SiteCamping not found with id: " + siteId);
+        }
+
+        Double averageRating = siteCampingAvisRepository.getAverageRatingBySiteId(siteId);
+        Long totalRatings = siteCampingAvisRepository.countRatingsBySiteId(siteId);
+
+        if (averageRating == null) {
+            averageRating = 0.0;
+        }
+
+        averageRating = Math.round(averageRating * 10.0) / 10.0;
+
+        return new SiteCampingRatingResponse(siteId, averageRating, totalRatings);
     }
 }
