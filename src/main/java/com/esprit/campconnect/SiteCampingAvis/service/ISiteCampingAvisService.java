@@ -1,9 +1,7 @@
 package com.esprit.campconnect.SiteCampingAvis.service;
 
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisAdminResponse;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisCreateRequest;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisResponse;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisUpdateRequest;
+import com.esprit.campconnect.SiteCampingAvis.dto.*;
+import com.esprit.campconnect.SiteCampingAvis.entity.SiteCampingAvis;
 
 import java.util.List;
 
@@ -13,4 +11,6 @@ public interface ISiteCampingAvisService {
     void deleteSiteCampingAvis(Long idAvis);
     List<SiteCampingAvisResponse> getAvisBySite(Long siteId);
     List<SiteCampingAvisAdminResponse> getAllAvisForAdmin();
+    List<SiteCampingAvisAdminResponse> getMyCampAvis();
+    SiteCampingRatingResponse getAverageRatingBySite(Long siteId);
 }

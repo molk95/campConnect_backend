@@ -1,6 +1,7 @@
 package com.esprit.campconnect.siteCamping.controller;
 
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
+import com.esprit.campconnect.siteCamping.dto.SiteAvailabilityResponse;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingUpdateRequest;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Tag(name = "Gestion Site Camping")
@@ -52,4 +54,11 @@ public class SiteCampingController {
         return iSiteCampingService.getMySites();
     }
 
+    @GetMapping("/{idSite}/availability")
+    public SiteAvailabilityResponse getAvailability(
+            @PathVariable Long idSite,
+            @RequestParam LocalDate dateDebut,
+            @RequestParam LocalDate dateFin) {
+        return iSiteCampingService.getAvailability(idSite, dateDebut, dateFin);
+    }
 }

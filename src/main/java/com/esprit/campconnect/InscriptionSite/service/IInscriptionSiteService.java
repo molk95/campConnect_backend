@@ -1,5 +1,6 @@
 package com.esprit.campconnect.InscriptionSite.service;
 
+import com.esprit.campconnect.InscriptionSite.dto.InscriptionCheckoutResponse;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCreateRequest;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteResponse;
 import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteUpdateRequest;
@@ -9,7 +10,8 @@ import java.util.List;
 
 public interface IInscriptionSiteService {
 
-    InscriptionSiteResponse addInscriptionSite(InscriptionSiteCreateRequest request);
+    InscriptionCheckoutResponse addInscriptionSite(InscriptionSiteCreateRequest request);
+    InscriptionSiteResponse confirmPayment(Long idInscription);
 
     InscriptionSiteResponse patchInscriptionSite(Long idInscription, InscriptionSiteUpdateRequest request);
 
@@ -26,4 +28,10 @@ public interface IInscriptionSiteService {
     InscriptionSiteResponse cancelInscriptionSite(Long idInscription);
 
     List<InscriptionSiteResponse> getMyInscriptions();
+
+    byte[] generateTicket(Long idInscription);
+
+    List<InscriptionSiteResponse> getMyCampBookingList();
+
+
 }

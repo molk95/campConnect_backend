@@ -5,6 +5,7 @@ import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteReposito
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import com.esprit.campconnect.common.ICloudinaryService;
+import com.esprit.campconnect.siteCamping.dto.SiteAvailabilityResponse;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
 import com.esprit.campconnect.siteCamping.dto.SiteCampingUpdateRequest;
@@ -15,8 +16,9 @@ import lombok.AllArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
+
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -179,5 +181,37 @@ public class SiteCampingServiceImp implements ISiteCampingService {
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    @Override
+    public SiteAvailabilityResponse getAvailability(Long idSite, LocalDate dateDebut, LocalDate dateFin) {
+        SiteCamping site = siteCampingRepository.findById(idSite)
+                .orElseThrow(() -> new IllegalArgumentException("SiteCamping not found with id: " + idSite));
+
+        if (!dateFin.isAfter(dateDebut)) {
+            throw new IllegalArgumentException("dateFin must be after dateDebut");
+        }
+
+        Integer reservedGuests = inscriptionSiteRepository
+                .sumGuestsBySiteAndStatutAndDateOverlap(
+                        idSite,
+                        StatutInscription.CONFIRMED,
+                        dateDebut,
+                        dateFin
+                );
+
+        if (reservedGuests == null) {
+            reservedGuests = 0;
+        }
+
+        int remainingCapacity = site.getCapacite() - reservedGuests;
+
+        SiteAvailabilityResponse response = new SiteAvailabilityResponse();
+        response.setSiteId(site.getIdSite());
+        response.setCapacite(site.getCapacite());
+        response.setReservedGuests(reservedGuests);
+        response.setRemainingCapacity(remainingCapacity);
+
+        return response;
     }
 }

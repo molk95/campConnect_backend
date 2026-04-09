@@ -1,9 +1,6 @@
 package com.esprit.campconnect.SiteCampingAvis.controller;
 
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisAdminResponse;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisCreateRequest;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisResponse;
-import com.esprit.campconnect.SiteCampingAvis.dto.SiteCampingAvisUpdateRequest;
+import com.esprit.campconnect.SiteCampingAvis.dto.*;
 import com.esprit.campconnect.SiteCampingAvis.service.ISiteCampingAvisService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,5 +49,16 @@ public class SiteCampingAvisController {
     @GetMapping("/admin/site-camping-avis")
     public List<SiteCampingAvisAdminResponse> getAllAvisForAdmin() {
         return iSiteCampingAvisService.getAllAvisForAdmin();
+    }
+
+    @GetMapping("/my-camp-avis")
+    public List<SiteCampingAvisAdminResponse> getMyCampAvis() {
+        return iSiteCampingAvisService.getMyCampAvis();
+    }
+
+    @Operation(description = "Récupérer la note moyenne d'un site camping")
+    @GetMapping("/site/{siteId}/rating")
+    public SiteCampingRatingResponse getAverageRatingBySite(@PathVariable Long siteId) {
+        return iSiteCampingAvisService.getAverageRatingBySite(siteId);
     }
 }

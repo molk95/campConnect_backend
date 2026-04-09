@@ -1,14 +1,13 @@
 package com.esprit.campconnect.InscriptionSite.service;
 
-import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCampingSummary;
-import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteCreateRequest;
-import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteResponse;
-import com.esprit.campconnect.InscriptionSite.dto.InscriptionSiteUpdateRequest;
+import com.esprit.campconnect.InscriptionSite.dto.*;
 import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
 import com.esprit.campconnect.InscriptionSite.entity.StatutInscription;
 import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteRepository;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
+import com.esprit.campconnect.common.BookingEmailTemplateService;
+import com.esprit.campconnect.common.EmailService;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.esprit.campconnect.siteCamping.entity.StatutDispo;
 import com.esprit.campconnect.siteCamping.repository.SiteCampingRepository;
@@ -23,6 +22,10 @@ import java.util.List;
 @AllArgsConstructor
 public class InscriptionSiteServiceImp implements IInscriptionSiteService {
 
+    private final InscriptionStripeService inscriptionStripeService;
+    private final TicketPdfService ticketPdfService;
+    private final EmailService emailService;
+    private final BookingEmailTemplateService bookingEmailTemplateService;
     private final InscriptionSiteRepository inscriptionSiteRepository;
     private final SiteCampingRepository siteCampingRepository;
     private final UtilisateurRepository utilisateurRepository;
@@ -62,6 +65,7 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
 
         return response;
     }
+
     private void updateSiteStatus(SiteCamping site) {
         Integer reservedGuests = inscriptionSiteRepository
                 .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
@@ -74,10 +78,6 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
 
         if (site.getStatutDispo() == StatutDispo.CLOSED) {
             return;
-        }
-
-        if (remainingCapacity <= 0) {
-            site.setStatutDispo(StatutDispo.FULL);
         } else {
             site.setStatutDispo(StatutDispo.AVAILABLE);
         }
@@ -86,12 +86,17 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
     }
 
     @Override
-    public InscriptionSiteResponse addInscriptionSite(InscriptionSiteCreateRequest request) {
+    public InscriptionCheckoutResponse addInscriptionSite(InscriptionSiteCreateRequest request) {
         SiteCamping site = siteCampingRepository.findById(request.getSiteId())
                 .orElseThrow(() -> new RuntimeException("Site not found"));
 
         Integer reservedGuests = inscriptionSiteRepository
-                .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+                .sumGuestsBySiteAndStatutAndDateOverlap(
+                        site.getIdSite(),
+                        StatutInscription.CONFIRMED,
+                        request.getDateDebut(),
+                        request.getDateFin()
+                );
 
         if (reservedGuests == null) {
             reservedGuests = 0;
@@ -127,10 +132,61 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
 
         InscriptionSite saved = inscriptionSiteRepository.save(inscriptionSite);
 
+        var session = inscriptionStripeService.createCheckoutSession(saved);
+
         updateSiteStatus(site);
 
-        return mapToResponse(saved);
+        InscriptionCheckoutResponse response = new InscriptionCheckoutResponse();
+        response.setInscription(mapToResponse(saved));
+        response.setCheckoutUrl(session.getUrl());
+        response.setSessionId(session.getId());
+
+        return response;
     }
+
+    @Override
+    public InscriptionSiteResponse confirmPayment(Long idInscription) {
+        InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
+                .orElseThrow(() -> new RuntimeException("Inscription not found"));
+
+        if (inscription.getStatut() == StatutInscription.CONFIRMED) {
+            return mapToResponse(inscription);
+        }
+
+        inscription.setStatut(StatutInscription.CONFIRMED);
+        InscriptionSite updated = inscriptionSiteRepository.save(inscription);
+        updateSiteStatus(inscription.getSiteCamping());
+
+        // Generate ticket and send emails
+        try {
+            byte[] ticketPdf = ticketPdfService.generateTicketPdf(updated);
+
+            // Email to User with Ticket
+            String customerHtml = bookingEmailTemplateService.buildCustomerBookingConfirmedEmail(updated);
+            String ownerHtml = bookingEmailTemplateService.buildOwnerBookingAlertEmail(updated);
+
+            emailService.sendHtmlEmail(
+                    updated.getUtilisateur().getEmail(),
+                    "Your CampConnect booking is confirmed",
+                    customerHtml,
+                    ticketPdf,
+                    "Ticket-" + updated.getIdInscription() + ".pdf"
+            );
+
+            emailService.sendHtmlEmail(
+                    updated.getSiteCamping().getOwner().getEmail(),
+                    "New booking for " + updated.getSiteCamping().getNom(),
+                    ownerHtml,
+                    null,
+                    null
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send confirmation emails: " + e.getMessage());
+        }
+
+        return mapToResponse(updated);
+    }
+
 
     @Override
     public InscriptionSiteResponse patchInscriptionSite(Long idInscription, InscriptionSiteUpdateRequest request) {
@@ -164,7 +220,12 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
             SiteCamping site = existing.getSiteCamping();
 
             Integer reservedGuests = inscriptionSiteRepository
-                    .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+                    .sumGuestsBySiteAndStatutAndDateOverlap(
+                            site.getIdSite(),
+                            StatutInscription.CONFIRMED,
+                            existing.getDateDebut(),
+                            existing.getDateFin()
+                    );
 
             if (reservedGuests == null) {
                 reservedGuests = 0;
@@ -233,7 +294,12 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
         }
 
         Integer confirmedGuests = inscriptionSiteRepository
-                .sumGuestsBySiteAndStatut(site.getIdSite(), StatutInscription.CONFIRMED);
+                .sumGuestsBySiteAndStatutAndDateOverlap(
+                        site.getIdSite(),
+                        StatutInscription.CONFIRMED,
+                        inscription.getDateDebut(),
+                        inscription.getDateFin()
+                );
 
         if (confirmedGuests == null) {
             confirmedGuests = 0;
@@ -276,6 +342,29 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
         Utilisateur currentUser = getCurrentUser();
 
         return inscriptionSiteRepository.findByUtilisateur_Id(currentUser.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+
+    @Override
+    public byte[] generateTicket(Long idInscription) {
+        InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
+                .orElseThrow(() -> new RuntimeException("Inscription not found"));
+
+        if (inscription.getStatut() != StatutInscription.CONFIRMED) {
+            throw new RuntimeException("Ticket can only be generated for confirmed bookings");
+        }
+
+        return ticketPdfService.generateTicketPdf(inscription);
+    }
+
+    @Override
+    public List<InscriptionSiteResponse> getMyCampBookingList() {
+        Utilisateur currentUser = getCurrentUser();
+
+        return inscriptionSiteRepository.findBySiteCamping_Owner_Id(currentUser.getId())
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
