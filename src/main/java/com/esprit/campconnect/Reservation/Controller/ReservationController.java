@@ -195,6 +195,26 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.getReservationById(id));
     }
 
+    @PutMapping("/events/{eventId}/markAttended")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @Operation(summary = "Bulk mark eligible reservations as attended", description = "Mark all confirmed or paid reservations for an event as attended once the event has started or completed")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Eligible reservations marked as attended"),
+            @ApiResponse(responseCode = "400", description = "Attendance cannot be recorded yet for this event")
+    })
+    public ResponseEntity<List<ReservationResponseDTO>> markEligibleReservationsAsAttended(
+            @PathVariable Long eventId,
+            Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        return ResponseEntity.ok(
+                reservationService.markEligibleReservationsAsAttended(
+                        eventId,
+                        effectiveAuthentication != null ? effectiveAuthentication.getName() : null,
+                        isAdministrator(effectiveAuthentication)
+                )
+        );
+    }
+
     @PutMapping("/markNoShow/{id}")
     @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Mark as no-show", description = "Mark reservation as no-show once the event has started or completed")

@@ -300,14 +300,42 @@ public class ReservationServiceImpl implements IReservationService {
 
         validateAttendanceManagementAccess(reservation, requesterEmail, requesterIsAdmin);
         validateAttendanceRecordingEligibility(reservation);
-
-        reservation.setStatut(ReservationStatus.ATTENDED);
-        reservation.setEstEnAttente(false);
-        clearWaitlistSeatOffer(reservation);
-        reservation.setDateModification(LocalDateTime.now());
-        reservationRepository.save(reservation);
+        persistAttendanceRecordedReservation(reservation, LocalDateTime.now());
 
         log.info("Reservation marked as ATTENDED");
+    }
+
+    @Override
+    public List<ReservationResponseDTO> markEligibleReservationsAsAttended(Long eventId, String requesterEmail, boolean requesterIsAdmin) {
+        log.info("Marking eligible reservations as ATTENDED for event {}", eventId);
+
+        Event event = getEventOrThrow(eventId);
+        validateAttendanceManagementAccess(event, requesterEmail, requesterIsAdmin);
+
+        LocalDateTime now = LocalDateTime.now();
+        synchronizeEventLifecycleStatus(event, now);
+
+        if (event.getDateDebut() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Attendance can only be recorded for reservations linked to a scheduled event"
+            );
+        }
+
+        if (now.isBefore(event.getDateDebut())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Attendance can only be recorded on or after the event start time"
+            );
+        }
+
+        List<Reservation> updatedReservations = reservationRepository.findByEventIdWithDetails(eventId).stream()
+                .filter(this::isAttendanceRecordable)
+                .map(reservation -> persistAttendanceRecordedReservation(reservation, now))
+                .toList();
+
+        log.info("Marked {} reservation(s) as ATTENDED for event {}", updatedReservations.size(), eventId);
+        return mapReservationsToResponseDTOs(updatedReservations);
     }
 
     @Override
@@ -1381,6 +1409,37 @@ public class ReservationServiceImpl implements IReservationService {
                 && !reservation.getEvent().getDateFin().isAfter(LocalDateTime.now());
     }
 
+    private Reservation persistAttendanceRecordedReservation(Reservation reservation, LocalDateTime referenceTime) {
+        LocalDateTime effectiveReferenceTime = referenceTime != null ? referenceTime : LocalDateTime.now();
+        boolean requestFeedbackImmediately = shouldRequestFeedbackImmediately(reservation, effectiveReferenceTime);
+
+        reservation.setStatut(ReservationStatus.ATTENDED);
+        reservation.setEstEnAttente(false);
+        clearWaitlistSeatOffer(reservation);
+        if (requestFeedbackImmediately) {
+            reservation.setFeedbackRequestedAt(effectiveReferenceTime);
+        }
+        reservation.setDateModification(effectiveReferenceTime);
+
+        Reservation savedReservation = reservationRepository.save(reservation);
+        if (requestFeedbackImmediately) {
+            userNotificationService.notifyFeedbackRequested(savedReservation);
+        }
+
+        return savedReservation;
+    }
+
+    private boolean shouldRequestFeedbackImmediately(Reservation reservation, LocalDateTime referenceTime) {
+        if (reservation == null || reservation.getFeedbackSubmittedAt() != null || reservation.getFeedbackRequestedAt() != null) {
+            return false;
+        }
+
+        Event event = reservation.getEvent();
+        return event != null
+                && event.getDateFin() != null
+                && !event.getDateFin().isAfter(referenceTime != null ? referenceTime : LocalDateTime.now());
+    }
+
     private boolean countsTowardFavoriteCategory(Reservation reservation) {
         return reservation.getEvent() != null
                 && reservation.getEvent().getCategorie() != null
@@ -1404,12 +1463,15 @@ public class ReservationServiceImpl implements IReservationService {
     }
 
     private void validateAttendanceManagementAccess(Reservation reservation, String requesterEmail, boolean requesterIsAdmin) {
+        validateAttendanceManagementAccess(reservation != null ? reservation.getEvent() : null, requesterEmail, requesterIsAdmin);
+    }
+
+    private void validateAttendanceManagementAccess(Event event, String requesterEmail, boolean requesterIsAdmin) {
         if (requesterIsAdmin) {
             return;
         }
 
         Utilisateur requester = getUserByEmailOrThrow(requesterEmail);
-        Event event = reservation != null ? reservation.getEvent() : null;
         boolean isOrganizer = event != null
                 && event.getOrganizer() != null
                 && event.getOrganizer().getId() != null
