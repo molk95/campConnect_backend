@@ -66,6 +66,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     Optional<Reservation> findByStripeInvoiceId(String stripeInvoiceId);
 
+    long countByPromotionOfferId(Long promotionOfferId);
+
     // Count confirmed/paid reservations for event
     @Query("SELECT COUNT(r) FROM Reservation r WHERE r.event.id = :eventId AND r.statut IN ('CONFIRMED', 'PAID')")
     Long countConfirmedReservations(@Param("eventId") Long eventId);

@@ -32,9 +32,12 @@ services:
     depends_on:
       - mysql
     ports:
-      - "8080:8080"
+      - "8082:8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      CLOUDINARY_CLOUD_NAME: dczqefpdb
+      CLOUDINARY_API_KEY: 496427515753929
+      CLOUDINARY_API_SECRET: n-zjAvwxckpv6zxxHyiBHo-q_8k
       APP_UPLOAD_DIR: /app/uploads/events
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
@@ -48,6 +51,8 @@ services:
       GOOGLE_MAPS_STATIC_MAP_WIDTH: ${GOOGLE_MAPS_STATIC_MAP_WIDTH:-900}
       GOOGLE_MAPS_STATIC_MAP_HEIGHT: ${GOOGLE_MAPS_STATIC_MAP_HEIGHT:-420}
       GOOGLE_MAPS_STATIC_MAP_ZOOM: ${GOOGLE_MAPS_STATIC_MAP_ZOOM:-14}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASS: ${MAIL_PASS:-}
     restart: always
     volumes:
       - backend_uploads:/app/uploads

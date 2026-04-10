@@ -68,6 +68,8 @@ public class EventRequestDTO {
     @Min(value = 15, message = "La durée minimale est 15 minutes")
     private Integer dureeMinutes;
 
+    private Boolean published;
+
     @Size(max = 500, message = "L'URL de l'image bannière ne peut pas dépasser 500 caractères")
     private String bannerImage; // URL or path to banner/main image
 

@@ -26,6 +26,11 @@ public class ReservationResponseDTO {
     private String eventLieu;
     private ReservationStatus statut;
     private Integer nombreParticipants;
+    private BigDecimal basePriceTotal;
+    private BigDecimal discountAmount;
+    private String promoCode;
+    private String discountLabel;
+    private Boolean discountAutoApplied;
     private BigDecimal prixTotal;
     private Boolean estEnAttente;
     private PaymentStatus statutPaiement;
@@ -46,4 +51,8 @@ public class ReservationResponseDTO {
     private String cancellationReason;
     private Boolean receiptAvailable;
     private ReservationCancellationPolicyDTO cancellationPolicy;
+    private Boolean calendarExportAvailable;
+    private String googleCalendarUrl;
+    private String calendarIcsDownloadUrl;
+    private String calendarIcsFileName;
 }

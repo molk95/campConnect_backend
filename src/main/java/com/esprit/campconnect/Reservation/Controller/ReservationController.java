@@ -25,6 +25,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -41,6 +42,7 @@ public class ReservationController {
     // ============== CRUD ENDPOINTS ==============
 
     @PostMapping("/createReservation")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Create reservation", description = "Create a new reservation for an event")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Reservation created successfully"),
@@ -50,18 +52,18 @@ public class ReservationController {
     public ResponseEntity<ReservationResponseDTO> createReservation(
             @Valid @RequestBody ReservationRequestDTO requestDTO,
             Authentication authentication) {
-        // Auto-populate utilisateurId from authentication if not provided
-        if (requestDTO.getUtilisateurId() == null && authentication != null) {
-            String email = authentication.getName();
-            Utilisateur user = utilisateurRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            requestDTO.setUtilisateurId(user.getId());
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        if (effectiveAuthentication == null || effectiveAuthentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user is required");
         }
-        
-        if (requestDTO.getUtilisateurId() == null) {
-            throw new RuntimeException("Unable to determine user ID");
+
+        Utilisateur authenticatedUser = utilisateurRepository.findByEmail(effectiveAuthentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (requestDTO.getUtilisateurId() == null || !isAdministrator(effectiveAuthentication)) {
+            requestDTO.setUtilisateurId(authenticatedUser.getId());
         }
-        
+
         ReservationResponseDTO createdReservation = reservationService.createReservation(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdReservation);
     }
@@ -78,15 +80,28 @@ public class ReservationController {
     }
 
     @GetMapping("/getAllReservations")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get all reservations", description = "Retrieve all reservations (admin only)")
     @ApiResponse(responseCode = "200", description = "List of all reservations")
     public ResponseEntity<List<ReservationResponseDTO>> getAllReservations() {
         return ResponseEntity.ok(reservationService.getAllReservations());
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
+    @Operation(summary = "Get my reservations", description = "Retrieve reservations for the authenticated user")
+    @ApiResponse(responseCode = "200", description = "List of the authenticated user's reservations")
+    public ResponseEntity<List<ReservationResponseDTO>> getMyReservations(Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        return ResponseEntity.ok(
+                reservationService.getReservationsForAuthenticatedUser(
+                        effectiveAuthentication != null ? effectiveAuthentication.getName() : null
+                )
+        );
+    }
+
     @GetMapping("/getByUser/{userId}")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Get user's reservations")
     @ApiResponse(responseCode = "200", description = "List of user's reservations")
     public ResponseEntity<List<ReservationResponseDTO>> getReservationsByUser(
@@ -95,7 +110,7 @@ public class ReservationController {
     }
 
     @GetMapping("/getByEvent/{eventId}")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Get event's reservations")
     @ApiResponse(responseCode = "200", description = "List of reservations for event")
     public ResponseEntity<List<ReservationResponseDTO>> getReservationsByEvent(
@@ -104,7 +119,7 @@ public class ReservationController {
     }
 
     @PutMapping("/updateReservation/{id}")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Update reservation", description = "Update reservation details")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reservation updated successfully"),
@@ -118,7 +133,7 @@ public class ReservationController {
     }
 
     @DeleteMapping("/cancelReservation/{id}")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Cancel reservation", description = "Cancel an existing reservation")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reservation cancelled"),
@@ -135,7 +150,7 @@ public class ReservationController {
     // ============== RESERVATION MANAGEMENT ENDPOINTS ==============
 
     @PutMapping("/confirmReservation/{id}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Confirm reservation", description = "Confirm a pending reservation (admin only)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reservation confirmed"),
@@ -147,7 +162,7 @@ public class ReservationController {
     }
 
     @PutMapping("/rejectReservation/{id}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Reject reservation", description = "Reject a pending reservation (admin only)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reservation rejected"),
@@ -161,7 +176,7 @@ public class ReservationController {
     }
 
     @PutMapping("/markNoShow/{id}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Mark as no-show", description = "Mark reservation as no-show")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Marked as no-show"),
@@ -175,7 +190,7 @@ public class ReservationController {
     // ============== PAYMENT ENDPOINTS ==============
 
     @PostMapping("/{id}/checkout-session")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Create Stripe checkout session", description = "Create a Stripe-hosted checkout session for a confirmed reservation or a paid-required waitlist reservation")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Checkout session created"),
@@ -197,7 +212,7 @@ public class ReservationController {
     }
 
     @PostMapping("/checkout-session/sync")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Sync Stripe checkout session", description = "Synchronize the reservation payment state from Stripe after redirect")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reservation synchronized"),
@@ -219,7 +234,7 @@ public class ReservationController {
     }
 
     @GetMapping("/{id}/receipt")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Download reservation receipt", description = "Generate a PDF receipt for a paid, refunded, or billed reservation")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Receipt PDF generated"),
@@ -243,8 +258,33 @@ public class ReservationController {
                 .body(receiptPdf);
     }
 
+    @GetMapping("/{id}/calendar.ics")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
+    @Operation(summary = "Download reservation calendar invite", description = "Generate an .ics calendar file for an active reservation so guests can add it to Google Calendar, Apple Calendar, Outlook, or other calendar apps")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Calendar invite generated"),
+            @ApiResponse(responseCode = "403", description = "Reservation does not belong to the authenticated user"),
+            @ApiResponse(responseCode = "404", description = "Reservation not found"),
+            @ApiResponse(responseCode = "409", description = "Calendar export is not available for this reservation")
+    })
+    public ResponseEntity<byte[]> downloadReservationCalendarInvite(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        byte[] calendarInvite = reservationService.generateCalendarInvite(
+                id,
+                effectiveAuthentication != null ? effectiveAuthentication.getName() : null,
+                isAdministrator(effectiveAuthentication)
+        );
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/calendar; charset=UTF-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=reservation-" + id + "-calendar.ics")
+                .body(calendarInvite);
+    }
+
     @GetMapping("/me/stats")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Get reservation dashboard stats", description = "Fetch reservation history and billing stats for the authenticated user")
     @ApiResponse(responseCode = "200", description = "Reservation dashboard stats")
     public ResponseEntity<UserReservationStatsDTO> getMyReservationStats(Authentication authentication) {
@@ -257,7 +297,7 @@ public class ReservationController {
     }
 
     @PostMapping("/processPayment")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Process payment", description = "Process payment for a reservation")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Payment processed"),
@@ -270,7 +310,7 @@ public class ReservationController {
     }
 
     @PostMapping("/refundReservation/{id}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Refund reservation", description = "Process refund for a paid reservation")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Refund processed"),
@@ -295,7 +335,7 @@ public class ReservationController {
     // ============== WAITLIST ENDPOINTS ==============
 
     @GetMapping("/getWaitlist/{eventId}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get event waitlist", description = "Get all waitlist reservations for an event")
     @ApiResponse(responseCode = "200", description = "List of waitlist reservations")
     public ResponseEntity<List<ReservationResponseDTO>> getEventWaitlist(
@@ -304,7 +344,7 @@ public class ReservationController {
     }
 
     @PutMapping("/processWaitlist/{eventId}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Process waitlist", description = "Promote waitlist reservations to confirmed")
     @ApiResponse(responseCode = "200", description = "Waitlist processed")
     public ResponseEntity<Void> processWaitlist(@PathVariable Long eventId) {
@@ -313,7 +353,7 @@ public class ReservationController {
     }
 
     @GetMapping("/isOnWaitlist/{userId}/{eventId}")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Check if user is on waitlist")
     @ApiResponse(responseCode = "200", description = "Waitlist status")
     public ResponseEntity<Boolean> isUserOnWaitlist(
@@ -325,7 +365,7 @@ public class ReservationController {
     // ============== QUERY ENDPOINTS ==============
 
     @GetMapping("/pending")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get pending reservations", description = "Get all pending reservations for admin approval")
     @ApiResponse(responseCode = "200", description = "List of pending reservations")
     public ResponseEntity<List<ReservationResponseDTO>> getPendingReservations() {
@@ -333,7 +373,7 @@ public class ReservationController {
     }
 
     @GetMapping("/unpaid")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get unpaid reservations", description = "Get all unpaid reservations")
     @ApiResponse(responseCode = "200", description = "List of unpaid reservations")
     public ResponseEntity<List<ReservationResponseDTO>> getUnpaidReservations() {
@@ -341,7 +381,7 @@ public class ReservationController {
     }
 
     @GetMapping("/refundable")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get refundable reservations", description = "Get cancelled or no-show reservations eligible for refund")
     @ApiResponse(responseCode = "200", description = "List of refundable reservations")
     public ResponseEntity<List<ReservationResponseDTO>> getRefundableReservations() {
@@ -349,7 +389,7 @@ public class ReservationController {
     }
 
     @GetMapping("/cancelled/{userId}")
-    @PreAuthorize("hasAnyRole('CLIENT', 'ADMINISTRATEUR')")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
     @Operation(summary = "Get user's cancelled reservations")
     @ApiResponse(responseCode = "200", description = "List of cancelled reservations")
     public ResponseEntity<List<ReservationResponseDTO>> getUserCancelledReservations(
@@ -360,7 +400,7 @@ public class ReservationController {
     // ============== ANALYTICS ENDPOINTS ==============
 
     @GetMapping("/analytics/revenue/{eventId}")
-    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "Get event revenue", description = "Calculate total revenue from paid reservations")
     @ApiResponse(responseCode = "200", description = "Total revenue amount")
     public ResponseEntity<Double> calculateEventRevenue(@PathVariable Long eventId) {
@@ -368,7 +408,7 @@ public class ReservationController {
     }
 
     @GetMapping("/analytics/confirmedCount/{eventId}")
-    @PreAuthorize("hasAnyRole('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
     @Operation(summary = "Count confirmed reservations")
     @ApiResponse(responseCode = "200", description = "Number of confirmed reservations")
     public ResponseEntity<Long> countConfirmedReservations(@PathVariable Long eventId) {
