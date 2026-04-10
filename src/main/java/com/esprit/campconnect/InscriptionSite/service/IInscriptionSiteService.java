@@ -23,7 +23,6 @@ public interface IInscriptionSiteService {
 
     List<InscriptionSiteResponse> getBySiteCamping(Long idSite);
 
-    InscriptionSiteResponse confirmInscriptionSite(Long idInscription);
 
     InscriptionSiteResponse cancelInscriptionSite(Long idInscription);
 

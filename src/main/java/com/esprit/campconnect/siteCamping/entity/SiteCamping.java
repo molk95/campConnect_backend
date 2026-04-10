@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -24,11 +25,8 @@ public class SiteCamping {
     private Long idSite;
 
     String nom;
-
     String localisation;
-
     Integer capacite;
-
     double prixParNuit;
     String imageUrl;
     String imagePublicId;
@@ -40,7 +38,7 @@ public class SiteCamping {
     @ToString.Exclude
     @JsonIgnore
     @OneToMany(mappedBy = "siteCamping")
-    Set<InscriptionSite> inscriptions;
+    Set<InscriptionSite> inscriptions = new HashSet<>();
 
     @OneToMany(mappedBy = "siteCamping")
     @JsonIgnore
