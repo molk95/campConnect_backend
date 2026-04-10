@@ -59,7 +59,10 @@ public class EventResponseDTO {
     private Boolean isAlmostFull;
     private Double occupancyRate;
     private Long favoriteCount;
+    private Double averageRating;
+    private Long feedbackCount;
     
     // Image gallery
     private List<EventImageDTO> images;
+    private List<EventFeedbackDTO> feedbackEntries;
 }
