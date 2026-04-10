@@ -24,6 +24,7 @@ public interface IReservationService {
     void confirmReservation(Long id);
     void rejectReservation(Long id, String reason);
     void markAsAttended(Long id, String requesterEmail, boolean requesterIsAdmin);
+    List<ReservationResponseDTO> markEligibleReservationsAsAttended(Long eventId, String requesterEmail, boolean requesterIsAdmin);
     void markAsNoShow(Long id, String requesterEmail, boolean requesterIsAdmin);
 
     // Payment processing

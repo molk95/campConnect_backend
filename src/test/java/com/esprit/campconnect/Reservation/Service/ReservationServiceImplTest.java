@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.eq;
@@ -166,6 +167,25 @@ class ReservationServiceImplTest {
 
         assertThat(reservation.getStatut()).isEqualTo(ReservationStatus.ATTENDED);
         verify(reservationRepository).save(reservation);
+    }
+
+    @Test
+    void markAsAttendedForCompletedEventRequestsFeedbackImmediately() {
+        Reservation reservation = buildReservation();
+        reservation.setStatut(ReservationStatus.CONFIRMED);
+        reservation.getEvent().setDateDebut(LocalDateTime.now().minusHours(4));
+        reservation.getEvent().setDateFin(LocalDateTime.now().minusHours(1));
+        reservation.setFeedbackRequestedAt(null);
+        reservation.setFeedbackSubmittedAt(null);
+
+        when(reservationRepository.findById(19L)).thenReturn(Optional.of(reservation));
+        when(reservationRepository.save(any(Reservation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        reservationService.markAsAttended(19L, "admin@campconnect.test", true);
+
+        assertThat(reservation.getStatut()).isEqualTo(ReservationStatus.ATTENDED);
+        assertThat(reservation.getFeedbackRequestedAt()).isNotNull();
+        verify(userNotificationService).notifyFeedbackRequested(reservation);
     }
 
     @Test
@@ -343,6 +363,50 @@ class ReservationServiceImplTest {
         assertThat(reservation.getReminderSevenDaysSentAt()).isNull();
         assertThat(reservation.getReminderTwoHoursSentAt()).isNull();
         verify(userNotificationService).notifyEventReminder(eq(reservation), eq("1 day"));
+    }
+
+    @Test
+    void markEligibleReservationsAsAttendedUpdatesAllEligibleReservationsForEvent() {
+        Reservation eligibleReservation = buildReservation();
+        eligibleReservation.setStatut(ReservationStatus.CONFIRMED);
+        eligibleReservation.getEvent().setDateDebut(LocalDateTime.now().minusHours(5));
+        eligibleReservation.getEvent().setDateFin(LocalDateTime.now().minusHours(1));
+        eligibleReservation.setFeedbackRequestedAt(null);
+        eligibleReservation.setFeedbackSubmittedAt(null);
+
+        Reservation secondEligibleReservation = buildReservation();
+        secondEligibleReservation.setId(20L);
+        secondEligibleReservation.setStatut(ReservationStatus.PAID);
+        secondEligibleReservation.getEvent().setId(11L);
+        secondEligibleReservation.getEvent().setDateDebut(LocalDateTime.now().minusHours(5));
+        secondEligibleReservation.getEvent().setDateFin(LocalDateTime.now().minusHours(1));
+        secondEligibleReservation.setFeedbackRequestedAt(null);
+        secondEligibleReservation.setFeedbackSubmittedAt(null);
+
+        Reservation ineligibleReservation = buildReservation();
+        ineligibleReservation.setId(21L);
+        ineligibleReservation.setStatut(ReservationStatus.NO_SHOW);
+        ineligibleReservation.getEvent().setId(11L);
+        ineligibleReservation.getEvent().setDateDebut(LocalDateTime.now().minusHours(5));
+        ineligibleReservation.getEvent().setDateFin(LocalDateTime.now().minusHours(1));
+
+        when(eventRepository.findById(11L)).thenReturn(Optional.of(eligibleReservation.getEvent()));
+        when(reservationRepository.findByEventIdWithDetails(11L))
+                .thenReturn(List.of(eligibleReservation, secondEligibleReservation, ineligibleReservation));
+        when(reservationRepository.save(any(Reservation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reservationCalendarService.isCalendarExportAvailable(any(Reservation.class))).thenReturn(false);
+
+        List<com.esprit.campconnect.Reservation.DTO.ReservationResponseDTO> updatedReservations =
+                reservationService.markEligibleReservationsAsAttended(11L, "admin@campconnect.test", true);
+
+        assertThat(updatedReservations).hasSize(2);
+        assertThat(updatedReservations)
+                .extracting(com.esprit.campconnect.Reservation.DTO.ReservationResponseDTO::getId)
+                .containsExactlyInAnyOrder(19L, 20L);
+        assertThat(eligibleReservation.getStatut()).isEqualTo(ReservationStatus.ATTENDED);
+        assertThat(secondEligibleReservation.getStatut()).isEqualTo(ReservationStatus.ATTENDED);
+        assertThat(ineligibleReservation.getStatut()).isEqualTo(ReservationStatus.NO_SHOW);
+        verify(userNotificationService, times(2)).notifyFeedbackRequested(any(Reservation.class));
     }
 
     @Test
