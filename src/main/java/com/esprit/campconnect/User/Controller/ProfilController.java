@@ -8,7 +8,10 @@ import com.esprit.campconnect.User.Service.ProfilDTOAutoImp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -49,6 +52,32 @@ public class ProfilController {
     @PutMapping("/updateProfil")
     public Profil modifyProfil(@RequestBody Profil profil) {
         return profilService.updateProfil(profil);
+    }
+
+
+    @GetMapping("/me")
+    public Profil getMyProfile(Authentication authentication) {
+        String email = authentication.getName();
+        return profilService.getProfileByUserEmail(email);
+    }
+
+    @PutMapping("/me")
+    public Profil updateMyProfile(@RequestBody Profil profil, Authentication authentication) {
+        String email = authentication.getName();
+        return profilService.updateMyProfile(email, profil);
+    }
+
+    @PostMapping(value = "/me/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Profil uploadMyProfileImage(@RequestParam("file") MultipartFile file,
+                                       Authentication authentication) {
+        String email = authentication.getName();
+        return profilService.uploadMyProfileImage(email, file);
+    }
+
+    @PutMapping("/me/photo-url")
+    public Profil updatePhotoUrl(@RequestBody String photoUrl, Authentication authentication) {
+        String email = authentication.getName();
+        return profilService.updatePhotoUrl(email, photoUrl);
     }
 
 

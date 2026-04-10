@@ -3,14 +3,16 @@ package com.esprit.campconnect.MarketPlace.Panier.Controller;
 import com.esprit.campconnect.MarketPlace.Panier.Entity.Panier;
 import com.esprit.campconnect.MarketPlace.Panier.Service.PanierService;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/paniers")
-@CrossOrigin("*")
 public class PanierController {
 
     private final PanierService panierService;
@@ -20,12 +22,19 @@ public class PanierController {
     }
 
     @PostMapping
-    public String ajouterPanier(@RequestBody Panier panier) {
+    public ResponseEntity<?> ajouterPanier(@RequestBody Panier panier) {
         try {
-            panierService.ajouterPanier(panier);
-            return "Panier ajouté avec succès";
+            Panier savedPanier = panierService.ajouterPanier(panier);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(
+                    Map.of(
+                            "message", "Panier ajouté avec succès",
+                            "idPanier", savedPanier.getIdPanier()
+                    )
+            );
         } catch (Exception e) {
-            return "Échec de l'ajout du panier";
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Échec de l'ajout du panier : " + e.getMessage());
         }
     }
 
@@ -56,6 +65,21 @@ public class PanierController {
             return "Panier supprimé avec succès";
         } catch (Exception e) {
             return "Échec de la suppression du panier";
+        }
+    }
+    @GetMapping("/{userId}/en-cours")
+    public ResponseEntity<?> getOrCreatePanierEnCours(@PathVariable Long userId) {
+        try {
+            Panier panier = panierService.getOrCreatePanierEnCours(userId);
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message", "Panier en cours récupéré",
+                            "idPanier", panier.getIdPanier()
+                    )
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur panier: " + e.getMessage());
         }
     }
 }

@@ -27,6 +27,8 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     // Find events by organizer
     List<Event> findByOrganizerId(Long organizerId);
 
+    List<Event> findByPublishedTrueOrderByDateDebutAsc();
+
     // Find events between date range
     @Query("SELECT e FROM Event e WHERE e.dateDebut >= :dateDebut AND e.dateFin <= :dateFin")
     List<Event> findEventsBetweenDates(

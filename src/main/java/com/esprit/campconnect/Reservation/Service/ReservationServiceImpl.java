@@ -47,6 +47,9 @@ public class ReservationServiceImpl implements IReservationService {
     private final UtilisateurRepository utilisateurRepository;
     private final StripeGatewayService stripeGatewayService;
     private final ReservationReceiptPdfService reservationReceiptPdfService;
+    private final ReservationCalendarService reservationCalendarService;
+    private final PromotionOfferService promotionOfferService;
+    private final UserNotificationService userNotificationService;
 
     private static final int FULL_REFUND_WINDOW_HOURS = 48;
     private static final int PARTIAL_REFUND_WINDOW_HOURS = 24;
@@ -69,16 +72,27 @@ public class ReservationServiceImpl implements IReservationService {
         validateParticipantsAgainstCapacity(event, requestDTO.getNombreParticipants());
         validateActiveReservationConflict(requestDTO.getUtilisateurId(), requestDTO.getEventId(), null);
 
+        PromotionOfferService.PromotionEvaluationResult pricingResult =
+                promotionOfferService.evaluateReservationPricing(
+                        event,
+                        requestDTO.getNombreParticipants(),
+                        requestDTO.getPromoCode(),
+                        true
+                );
+
         // Create reservation
         Reservation reservation = new Reservation();
         reservation.setUtilisateur(user);
         reservation.setEvent(event);
         reservation.setNombreParticipants(requestDTO.getNombreParticipants());
         reservation.setRemarques(requestDTO.getRemarques());
-
-        // Calculate price
-        BigDecimal totalPrice = calculatePrice(event.getPrix(), requestDTO.getNombreParticipants());
-        reservation.setPrixTotal(totalPrice);
+        reservation.setPromotionOffer(pricingResult.getAppliedPromotion());
+        reservation.setBasePriceTotal(pricingResult.getBasePriceTotal());
+        reservation.setDiscountAmount(pricingResult.getDiscountAmount());
+        reservation.setPromoCode(pricingResult.getAppliedPromoCode());
+        reservation.setDiscountLabel(pricingResult.getDiscountLabel());
+        reservation.setDiscountAutoApplied(pricingResult.isAutoApplied());
+        reservation.setPrixTotal(pricingResult.getTotalPrice());
 
         boolean isWaitlist = shouldBeWaitlisted(event, null, requestDTO.getNombreParticipants());
 
@@ -89,6 +103,8 @@ public class ReservationServiceImpl implements IReservationService {
         Reservation savedReservation = reservationRepository.save(reservation);
         log.info("Reservation {} created for event: {}, {} participants, waitlist: {}", 
                 savedReservation.getId(), event.getId(), requestDTO.getNombreParticipants(), isWaitlist);
+
+        notifyReservationCreated(savedReservation);
 
         // TODO: Send confirmation email
 
@@ -109,6 +125,16 @@ public class ReservationServiceImpl implements IReservationService {
     public List<ReservationResponseDTO> getAllReservations() {
         log.info("Fetching all reservations");
         return reservationRepository.findAll().stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public List<ReservationResponseDTO> getReservationsForAuthenticatedUser(String requesterEmail) {
+        Utilisateur requester = getUserByEmailOrThrow(requesterEmail);
+        log.info("Fetching reservations for authenticated user: {}", requester.getId());
+        return reservationRepository.findByUtilisateurId(requester.getId()).stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }
@@ -148,13 +174,25 @@ public class ReservationServiceImpl implements IReservationService {
         validateParticipantsAgainstCapacity(event, requestDTO.getNombreParticipants());
         validateActiveReservationConflict(user.getId(), event.getId(), reservation.getId());
 
+        PromotionOfferService.PromotionEvaluationResult pricingResult =
+                promotionOfferService.evaluateReservationPricing(
+                        event,
+                        requestDTO.getNombreParticipants(),
+                        requestDTO.getPromoCode(),
+                        true
+                );
+
         reservation.setUtilisateur(user);
         reservation.setEvent(event);
         reservation.setNombreParticipants(requestDTO.getNombreParticipants());
         reservation.setRemarques(requestDTO.getRemarques());
-
-        BigDecimal newPrice = calculatePrice(event.getPrix(), requestDTO.getNombreParticipants());
-        reservation.setPrixTotal(newPrice);
+        reservation.setPromotionOffer(pricingResult.getAppliedPromotion());
+        reservation.setBasePriceTotal(pricingResult.getBasePriceTotal());
+        reservation.setDiscountAmount(pricingResult.getDiscountAmount());
+        reservation.setPromoCode(pricingResult.getAppliedPromoCode());
+        reservation.setDiscountLabel(pricingResult.getDiscountLabel());
+        reservation.setDiscountAutoApplied(pricingResult.isAutoApplied());
+        reservation.setPrixTotal(pricingResult.getTotalPrice());
         reservation.setEstEnAttente(shouldBeWaitlisted(event, reservation, requestDTO.getNombreParticipants()));
         if (reservation.getEstEnAttente()) {
             reservation.setStatut(ReservationStatus.PENDING);
@@ -225,9 +263,10 @@ public class ReservationServiceImpl implements IReservationService {
                 : ReservationStatus.CONFIRMED);
         reservation.setEstEnAttente(false);
         reservation.setDateModification(LocalDateTime.now());
-        reservationRepository.save(reservation);
+        Reservation savedReservation = reservationRepository.save(reservation);
 
         log.info("Reservation confirmed successfully");
+        userNotificationService.notifyBookingConfirmed(savedReservation);
         // TODO: Send confirmation email
     }
 
@@ -364,6 +403,25 @@ public class ReservationServiceImpl implements IReservationService {
     }
 
     @Override
+    public byte[] generateCalendarInvite(Long reservationId, String requesterEmail, boolean requesterIsAdmin) {
+        log.info("Generating calendar export for reservation: {}", reservationId);
+
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
+
+        validateReservationAccess(reservation, requesterEmail, requesterIsAdmin);
+
+        if (!reservationCalendarService.isCalendarExportAvailable(reservation)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Calendar export is only available for active reservations with a scheduled event"
+            );
+        }
+
+        return reservationCalendarService.generateIcsInvite(reservation);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public UserReservationStatsDTO getReservationStatsForUser(String requesterEmail) {
         Utilisateur requester = getUserByEmailOrThrow(requesterEmail);
@@ -483,8 +541,9 @@ public class ReservationServiceImpl implements IReservationService {
                 waitlistRes.setEstEnAttente(false);
                 waitlistRes.setStatut(resolveSeatPromotionStatus(waitlistRes));
                 waitlistRes.setDateModification(LocalDateTime.now());
-                reservationRepository.save(waitlistRes);
+                Reservation promotedReservation = reservationRepository.save(waitlistRes);
                 log.info("Promoted reservation {} from waitlist to {}", waitlistRes.getId(), waitlistRes.getStatut());
+                userNotificationService.notifyWaitlistPromoted(promotedReservation);
                 // TODO: Send email notification
             } else {
                 break;
@@ -601,6 +660,21 @@ public class ReservationServiceImpl implements IReservationService {
      */
     private BigDecimal calculatePrice(BigDecimal eventPrice, Integer numberOfParticipants) {
         return eventPrice.multiply(new BigDecimal(numberOfParticipants));
+    }
+
+    private void notifyReservationCreated(Reservation reservation) {
+        if (reservation == null) {
+            return;
+        }
+
+        if (Boolean.TRUE.equals(reservation.getEstEnAttente())) {
+            userNotificationService.notifyWaitlistJoined(reservation);
+            return;
+        }
+
+        if (reservation.getStatut() == ReservationStatus.CONFIRMED || reservation.getStatut() == ReservationStatus.PAID) {
+            userNotificationService.notifyBookingConfirmed(reservation);
+        }
     }
 
     private Utilisateur getUserOrThrow(Long userId) {
@@ -796,7 +870,9 @@ public class ReservationServiceImpl implements IReservationService {
             reservation.setStatut(ReservationStatus.CANCELLED);
         }
 
-        return reservationRepository.save(reservation);
+        Reservation savedReservation = reservationRepository.save(reservation);
+        userNotificationService.notifyRefundProcessed(savedReservation);
+        return savedReservation;
     }
 
     private Reservation forceFullRefund(Reservation reservation, String reason) {
@@ -1296,6 +1372,11 @@ public class ReservationServiceImpl implements IReservationService {
 
         dto.setStatut(effectiveReservation.getStatut());
         dto.setNombreParticipants(effectiveReservation.getNombreParticipants());
+        dto.setBasePriceTotal(effectiveReservation.getBasePriceTotal());
+        dto.setDiscountAmount(effectiveReservation.getDiscountAmount());
+        dto.setPromoCode(effectiveReservation.getPromoCode());
+        dto.setDiscountLabel(effectiveReservation.getDiscountLabel());
+        dto.setDiscountAutoApplied(effectiveReservation.getDiscountAutoApplied());
         dto.setPrixTotal(effectiveReservation.getPrixTotal());
         dto.setEstEnAttente(effectiveReservation.getEstEnAttente());
         dto.setStatutPaiement(effectiveReservation.getStatutPaiement());
@@ -1316,6 +1397,11 @@ public class ReservationServiceImpl implements IReservationService {
         dto.setCancellationReason(effectiveReservation.getCancellationReason());
         dto.setReceiptAvailable(isReceiptAvailable(effectiveReservation));
         dto.setCancellationPolicy(buildCancellationPolicy(effectiveReservation));
+        boolean calendarExportAvailable = reservationCalendarService.isCalendarExportAvailable(effectiveReservation);
+        dto.setCalendarExportAvailable(calendarExportAvailable);
+        dto.setGoogleCalendarUrl(calendarExportAvailable ? reservationCalendarService.buildGoogleCalendarUrl(effectiveReservation) : null);
+        dto.setCalendarIcsDownloadUrl(calendarExportAvailable ? reservationCalendarService.buildIcsDownloadUrl(effectiveReservation.getId()) : null);
+        dto.setCalendarIcsFileName(calendarExportAvailable ? reservationCalendarService.buildSuggestedFilename(effectiveReservation) : null);
 
         return dto;
     }

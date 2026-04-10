@@ -45,6 +45,7 @@ public class StripeGatewayService {
                     .putMetadata("reservationId", String.valueOf(reservation.getId()))
                     .putMetadata("eventId", String.valueOf(reservation.getEvent().getId()))
                     .putMetadata("userId", String.valueOf(reservation.getUtilisateur().getId()))
+                    .putMetadata("promoCode", StringUtils.hasText(reservation.getPromoCode()) ? reservation.getPromoCode() : "NONE")
                     .setInvoiceCreation(
                             SessionCreateParams.InvoiceCreation.builder()
                                     .setEnabled(true)
@@ -56,6 +57,7 @@ public class StripeGatewayService {
                                                     .putMetadata("eventId", String.valueOf(reservation.getEvent().getId()))
                                                     .putMetadata("userId", String.valueOf(reservation.getUtilisateur().getId()))
                                                     .putMetadata("eventTitle", reservation.getEvent().getTitre())
+                                                    .putMetadata("promoCode", StringUtils.hasText(reservation.getPromoCode()) ? reservation.getPromoCode() : "NONE")
                                                     .build()
                                     )
                                     .build()
@@ -204,13 +206,19 @@ public class StripeGatewayService {
     }
 
     private String buildInvoiceDescription(Reservation reservation) {
-        return String.format(
+        String baseDescription = String.format(
                 "CampConnect reservation #%d for %s (%d participant%s)",
                 reservation.getId(),
                 reservation.getEvent().getTitre(),
                 reservation.getNombreParticipants(),
                 reservation.getNombreParticipants() != null && reservation.getNombreParticipants() > 1 ? "s" : ""
         );
+
+        if (StringUtils.hasText(reservation.getDiscountLabel())) {
+            return baseDescription + " - " + reservation.getDiscountLabel();
+        }
+
+        return baseDescription;
     }
 
     private String joinUrl(String baseUrl, String path) {

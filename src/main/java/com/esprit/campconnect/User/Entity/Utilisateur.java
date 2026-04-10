@@ -1,7 +1,12 @@
 package com.esprit.campconnect.User.Entity;
 
+import com.esprit.campconnect.Assurance.Entity.SouscriptionAssurance;
+import com.esprit.campconnect.InscriptionSite.entity.InscriptionSite;
+import com.esprit.campconnect.SiteCampingAvis.entity.SiteCampingAvis;
+import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -12,7 +17,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -32,7 +39,9 @@ public class Utilisateur implements UserDetails {
     @Column(unique = true, nullable = false)
     String email;
 
-    @JsonIgnore
+
+    @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     String motDePasse;
     String telephone;
 
@@ -47,17 +56,35 @@ public class Utilisateur implements UserDetails {
     @JoinColumn(name = "profil_id")
     Profil profil;
 
+    @OneToMany(mappedBy = "utilisateur", cascade = CascadeType.ALL)
+    List<SouscriptionAssurance> souscriptionsAssurance;
+
+
+    @OneToMany(mappedBy = "utilisateur")
+    @JsonIgnore
+    Set<InscriptionSite> inscriptionsSite = new HashSet<>();
+
+    @OneToMany(mappedBy = "utilisateur")
+    @JsonIgnore
+    Set<SiteCampingAvis> avisSiteCamping = new HashSet<>();
+
+    @OneToMany(mappedBy = "owner")
+    @JsonIgnore
+    Set<SiteCamping> managedSites = new HashSet<>();
+
     @PrePersist
     protected void onCreate() {
         this.dateCreation = LocalDate.now();
     }
 
     @Override
+    @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        return List.of(new SimpleGrantedAuthority(role.name()));
     }
 
     @Override
+    @JsonIgnore
     public String getPassword() {
         return motDePasse;
     }

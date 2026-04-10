@@ -1,7 +1,10 @@
 package com.esprit.campconnect.MarketPlace.Produit.Entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "produit")
@@ -17,12 +20,24 @@ public class Produit {
 
     private double prix;
 
+    // ✅ stock global pour TENTE / RECHAUD / CUISINE
+    // ✅ sera aussi mis à jour automatiquement pour VETEMENT / CHAUSSURE
     private int stock;
 
-    private String image;
+    @ElementCollection
+    @CollectionTable(name = "produit_images", joinColumns = @JoinColumn(name = "produit_id"))
+    @Column(name = "image")
+    private List<String> images = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     private Categorie categorie;
+
+    @Column(nullable = false)
+    private boolean active = true;
+
+    @OneToMany(mappedBy = "produit", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<StockProduit> stocks = new ArrayList<>();
 
     public Produit() {}
 
@@ -66,19 +81,49 @@ public class Produit {
         this.stock = stock;
     }
 
-    public String getImage() {
-        return image;
+    public List<String> getImages() {
+        return images;
     }
 
-    public void setImage(String image) {
-        this.image = image;
+    public void setImages(List<String> images) {
+        this.images = images;
     }
 
-    public Categorie getcategorie() {
+    public Categorie getCategorie() {
         return categorie;
     }
 
-    public void setcategorie(Categorie categorie) {
+    public void setCategorie(Categorie categorie) {
         this.categorie = categorie;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public List<StockProduit> getStocks() {
+        return stocks;
+    }
+
+    public void setStocks(List<StockProduit> stocks) {
+        this.stocks = stocks;
+    }
+
+    // ✅ stock total affichable côté front
+    @Transient
+    public int getStockTotal() {
+        if (categorie == Categorie.VETEMENT || categorie == Categorie.CHAUSSURE) {
+            if (stocks == null) return 0;
+
+            return stocks.stream()
+                    .mapToInt(StockProduit::getStock)
+                    .sum();
+        }
+
+        return stock;
     }
 }
