@@ -194,9 +194,6 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "InscriptionSite not found with id: " + idInscription));
 
-        if (existing.getStatut() != StatutInscription.PENDING) {
-            throw new RuntimeException("Only pending inscriptions can be modified");
-        }
 
         if (request.getDateDebut() != null) {
             existing.setDateDebut(request.getDateDebut());
@@ -231,11 +228,11 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
                 reservedGuests = 0;
             }
 
-            int remainingCapacity = site.getCapacite() - reservedGuests;
+           /* int remainingCapacity = site.getCapacite() - reservedGuests;
 
             if (request.getNumberOfGuests() > remainingCapacity) {
                 throw new RuntimeException("numberOfGuests exceeds remaining capacity");
-            }
+            }*/
 
             existing.setNumberOfGuests(request.getNumberOfGuests());
         }
@@ -278,55 +275,17 @@ public class InscriptionSiteServiceImp implements IInscriptionSiteService {
     }
 
     @Override
-    public InscriptionSiteResponse confirmInscriptionSite(Long idInscription) {
-        InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "InscriptionSite not found with id: " + idInscription));
-
-        if (inscription.getStatut() != StatutInscription.PENDING) {
-            throw new RuntimeException("Only pending inscriptions can be confirmed");
-        }
-
-        SiteCamping site = inscription.getSiteCamping();
-
-        if (site.getStatutDispo() == StatutDispo.CLOSED) {
-            throw new RuntimeException("This site is closed");
-        }
-
-        Integer confirmedGuests = inscriptionSiteRepository
-                .sumGuestsBySiteAndStatutAndDateOverlap(
-                        site.getIdSite(),
-                        StatutInscription.CONFIRMED,
-                        inscription.getDateDebut(),
-                        inscription.getDateFin()
-                );
-
-        if (confirmedGuests == null) {
-            confirmedGuests = 0;
-        }
-
-        int remainingCapacity = site.getCapacite() - confirmedGuests;
-
-        if (inscription.getNumberOfGuests() > remainingCapacity) {
-            throw new RuntimeException("Not enough remaining capacity to confirm this inscription");
-        }
-
-        inscription.setStatut(StatutInscription.CONFIRMED);
-        InscriptionSite saved = inscriptionSiteRepository.save(inscription);
-
-        updateSiteStatus(site);
-
-        return mapToResponse(saved);
-    }
-
-    @Override
     public InscriptionSiteResponse cancelInscriptionSite(Long idInscription) {
         InscriptionSite inscription = inscriptionSiteRepository.findById(idInscription)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "InscriptionSite not found with id: " + idInscription));
 
         if (inscription.getStatut() == StatutInscription.CANCELLED) {
-            throw new RuntimeException("Inscription is already cancelled");
+            return mapToResponse(inscription);
+        }
+
+        if (inscription.getStatut() == StatutInscription.CONFIRMED) {
+            throw new RuntimeException("Confirmed inscription cannot be cancelled from Stripe cancel flow");
         }
 
         inscription.setStatut(StatutInscription.CANCELLED);

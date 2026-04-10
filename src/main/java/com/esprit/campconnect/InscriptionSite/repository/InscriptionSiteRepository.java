@@ -41,4 +41,12 @@ public interface InscriptionSiteRepository extends JpaRepository<InscriptionSite
                                                    @Param("dateFin") LocalDate dateFin);
 
     List<InscriptionSite> findBySiteCamping_Owner_Id(Long ownerId);
+
+    @Query("""
+       SELECT COUNT(i)
+       FROM InscriptionSite i
+       WHERE i.siteCamping.idSite = :siteId
+       AND i.statut = com.esprit.campconnect.InscriptionSite.entity.StatutInscription.CONFIRMED
+       """)
+    Long countConfirmedBookingsBySiteId(@Param("siteId") Long siteId);
 }

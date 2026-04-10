@@ -5,10 +5,7 @@ import com.esprit.campconnect.InscriptionSite.repository.InscriptionSiteReposito
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import com.esprit.campconnect.common.ICloudinaryService;
-import com.esprit.campconnect.siteCamping.dto.SiteAvailabilityResponse;
-import com.esprit.campconnect.siteCamping.dto.SiteCampingCreateRequest;
-import com.esprit.campconnect.siteCamping.dto.SiteCampingResponse;
-import com.esprit.campconnect.siteCamping.dto.SiteCampingUpdateRequest;
+import com.esprit.campconnect.siteCamping.dto.*;
 import com.esprit.campconnect.siteCamping.entity.SiteCamping;
 import com.esprit.campconnect.siteCamping.entity.StatutDispo;
 import com.esprit.campconnect.siteCamping.repository.SiteCampingRepository;
