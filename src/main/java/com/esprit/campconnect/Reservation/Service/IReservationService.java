@@ -1,6 +1,7 @@
 package com.esprit.campconnect.Reservation.Service;
 
 import com.esprit.campconnect.Reservation.DTO.PaymentProcessDTO;
+import com.esprit.campconnect.Reservation.DTO.ReservationFeedbackRequestDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationRequestDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationResponseDTO;
 import com.esprit.campconnect.Reservation.DTO.StripeCheckoutSessionResponseDTO;
@@ -22,7 +23,8 @@ public interface IReservationService {
     // Reservation management
     void confirmReservation(Long id);
     void rejectReservation(Long id, String reason);
-    void markAsNoShow(Long id);
+    void markAsAttended(Long id, String requesterEmail, boolean requesterIsAdmin);
+    void markAsNoShow(Long id, String requesterEmail, boolean requesterIsAdmin);
 
     // Payment processing
     ReservationResponseDTO processPayment(PaymentProcessDTO paymentDTO);
@@ -30,6 +32,7 @@ public interface IReservationService {
     ReservationResponseDTO syncCheckoutSession(String sessionId, String requesterEmail, boolean requesterIsAdmin);
     byte[] generateReceiptPdf(Long reservationId, String requesterEmail, boolean requesterIsAdmin);
     byte[] generateCalendarInvite(Long reservationId, String requesterEmail, boolean requesterIsAdmin);
+    ReservationResponseDTO submitFeedback(Long reservationId, ReservationFeedbackRequestDTO requestDTO, String requesterEmail, boolean requesterIsAdmin);
     UserReservationStatsDTO getReservationStatsForUser(String requesterEmail);
     void handleStripeWebhook(String payload, String signatureHeader);
     void refundReservation(Long reservationId, String reason);
@@ -38,6 +41,9 @@ public interface IReservationService {
     // Waitlist management
     void processWaitlistToConfirmed(Long eventId);
     void reconcileExpiredWaitlistReservations();
+    void reconcileExpiredWaitlistOffers();
+    void dispatchUpcomingReservationReminders();
+    void requestPostEventFeedback();
     List<ReservationResponseDTO> getEventWaitlist(Long eventId);
     boolean isUserOnWaitlist(Long userId, Long eventId);
 

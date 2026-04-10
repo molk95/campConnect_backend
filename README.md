@@ -2,134 +2,109 @@
 
 Spring Boot 3 + MySQL + Docker
 
----
-
 ## Stack
 
 - Java 17
 - Spring Boot 3.4.12
 - Spring Data JPA
 - MySQL 8
-- Docker & Docker Compose
+- Docker and Docker Compose
 - Swagger (OpenAPI)
 
----
+## Run Locally
 
-# 1. Run Application Locally (Without Docker)
-
-## Requirements
+Requirements:
 
 - Java 17
 - Maven
-- MySQL installed locally
+- MySQL running locally
 
----
+Check `src/main/resources/application.properties` and make sure the local database settings match your machine.
 
-## Check application.properties
+Common local setup:
 
-Make sure it contains:
-
-```
+```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/campconnect?createDatabaseIfNotExist=true
 spring.datasource.username=root
 spring.datasource.password=
 spring.jpa.hibernate.ddl-auto=update
 ```
-Run the Application
 
-Using Maven:
-```
+Start the app:
+
+```bash
 mvn spring-boot:run
 ```
-Or from IDE:
-Run `CampConnectApplication`
 
-## Access the Application
+Or run `CampConnectApplication` from your IDE.
 
-### Backend:
-```
-http://localhost:8082/api
-```
-### Swagger UI:
-```
-http://localhost:8082/api/swagger-ui.html
-```
-# 2. Run Application With Docker
-## Requirements
+Useful URLs:
+
+- Backend: `http://localhost:8082/api`
+- Swagger UI: `http://localhost:8082/api/swagger-ui.html`
+
+## Run With Docker
+
+Requirements:
 
 - Docker
-
 - Docker Compose
 
-## Step 1: Build and Start Containers
+From the project root:
 
-From project root (where `docker-compose.yml` exists):
-```
+```bash
 docker compose up --build -d
 ```
-### What This Starts
 
-- MySQL container (port 3307)
+Services:
 
-- Spring Boot container (port 8082)
-### Access Services
+- Backend: `http://localhost:8082/api`
+- Swagger UI: `http://localhost:8082/api/swagger-ui.html`
+- MySQL: `localhost:3307`
+- phpMyAdmin: `http://localhost:8081`
 
-### Backend:
-```
-http://localhost:8082/api
-```
+Default Docker database credentials:
 
-### Swagger:
-```
-http://localhost:8082/api/swagger-ui.html
-```
+- Database: `campconnect`
+- Username: `root`
+- Password: `root`
 
-### MySQL:
-```
-Host: localhost
-Port: 3307
-Username: root
-Password: root
-Database: campconnect
-```
-### phpMyAdmin Login (Docker)
+Stop containers:
 
-Open:
-```
-http://localhost:8081
-```
-Login:
-```
-Username: root
-
-Password: root
-```
-Server/Host: leave empty OR put `mysql`
-### Stop Containers
-```
+```bash
 docker compose down
 ```
 
-If you want to delete database volume:
+Remove containers and the database volume:
 
-```
+```bash
 docker compose down -v
 ```
 
-# Recommended package structure
+## Database Scripts
 
-```
+Database helper scripts now live under `database/` instead of the repo root.
+
+Recommended shared dataset:
+
+- `database/seeds/seed_tunisia_events_reservations.sql`
+
+See `database/README.md` for the team workflow, seed options, maintenance scripts, and notes about archived SQL files.
+
+## Recommended Package Structure
+
+```text
 com.esprit.campconnect
-├─ InscriptionSite
-│  ├─ controller
-│  │  └─ InscriptionSiteController
-│  ├─ entity
-│  │  ├─ InscriptionSite
-│  │  └─ StatutInscription
-│  ├─ repository
-│  │  └─ InscriptionSiteRepository
-│  └─ service
-│     ├─ IInscriptionSiteService
-│     └─ InscriptionSiteServiceImp
-└─ CampConnectApplication
+|-- InscriptionSite
+|   |-- controller
+|   |   `-- InscriptionSiteController
+|   |-- entity
+|   |   |-- InscriptionSite
+|   |   `-- StatutInscription
+|   |-- repository
+|   |   `-- InscriptionSiteRepository
+|   `-- service
+|       |-- IInscriptionSiteService
+|       `-- InscriptionSiteServiceImp
+`-- CampConnectApplication
 ```
