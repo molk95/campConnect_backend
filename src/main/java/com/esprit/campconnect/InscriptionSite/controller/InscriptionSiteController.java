@@ -79,11 +79,6 @@ public class InscriptionSiteController {
         return iInscriptionSiteService.getBySiteCamping(idSite);
     }
 
-    @Operation(description = "Confirmer une inscription site")
-    @PatchMapping("/confirm/{idInscription}")
-    public InscriptionSiteResponse confirmInscriptionSite(@PathVariable Long idInscription) {
-        return iInscriptionSiteService.confirmInscriptionSite(idInscription);
-    }
 
     @Operation(description = "Annuler une inscription site")
     @PatchMapping("/cancel/{idInscription}")
