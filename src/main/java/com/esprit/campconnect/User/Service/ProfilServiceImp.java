@@ -1,5 +1,8 @@
 package com.esprit.campconnect.User.Service;
 
+import com.esprit.campconnect.Notification.Entity.NotificationType;
+import com.esprit.campconnect.Notification.Entity.NotificationUser;
+import com.esprit.campconnect.Notification.Service.INotificationUserService;
 import com.esprit.campconnect.User.Entity.Profil;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.ProfilRepository;
@@ -21,6 +24,7 @@ public class ProfilServiceImp implements IProfilService {
     private final ProfilRepository profilRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final CloudinaryServiceImp cloudinaryServiceImp;
+    private final INotificationUserService notificationUserService;
 
     @Override
     public List<Profil> retrieveAllProfils() {
@@ -74,6 +78,13 @@ public class ProfilServiceImp implements IProfilService {
         utilisateur.setProfil(savedProfil);
         utilisateurRepository.save(utilisateur);
 
+        notificationUserService.createNotification(
+                utilisateur,
+                "Profil mis à jour",
+                "Vos informations de profil ont été mises à jour avec succès.",
+                NotificationType.PROFILE_UPDATED
+        );
+
         return savedProfil;
     }
 
@@ -97,6 +108,13 @@ public class ProfilServiceImp implements IProfilService {
             Profil savedProfil = profilRepository.save(profil);
             utilisateur.setProfil(savedProfil);
             utilisateurRepository.save(utilisateur);
+
+            notificationUserService.createNotification(
+                    utilisateur,
+                    "Photo de profil mise à jour",
+                    "Votre image de profil a été modifiée avec succès.",
+                    NotificationType.PROFILE_UPDATED
+            );
 
             return savedProfil;
 
@@ -122,6 +140,13 @@ public class ProfilServiceImp implements IProfilService {
         Profil savedProfil = profilRepository.save(profil);
         utilisateur.setProfil(savedProfil);
         utilisateurRepository.save(utilisateur);
+
+        notificationUserService.createNotification(
+                utilisateur,
+                "Photo de profil mise à jour",
+                "L’URL de votre photo de profil a été mise à jour avec succès.",
+                NotificationType.PROFILE_UPDATED
+        );
 
         return savedProfil;
     }

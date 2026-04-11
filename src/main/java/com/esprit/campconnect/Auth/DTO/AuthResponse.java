@@ -16,4 +16,7 @@ public class AuthResponse {
     String token;
     String message;
     String role;
+
+    boolean requires2FA;
+    String tempToken;
 }

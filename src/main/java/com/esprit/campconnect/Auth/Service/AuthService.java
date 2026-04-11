@@ -34,10 +34,11 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     private final GoogleAuthService googleAuthService;
+    private final TwoFactorAuthService twoFactorAuthService;
 
     public AuthResponse register(RegisterRequest request) {
         if (utilisateurRepository.existsByEmail(request.getEmail())) {
-            return new AuthResponse(null, null, "Email déjà utilisé", null);
+            return new AuthResponse(null, null, "Email déjà utilisé", null, false, null);
         }
 
         passwordValidatorService.validate(request.getMotDePasse());
@@ -75,10 +76,12 @@ public class AuthService {
         String jwtToken = jwtService.generateToken(savedUser);
 
         return new AuthResponse(
-                savedUser.getId(),
+                utilisateur.getId(),
                 jwtToken,
                 "Inscription réussie",
-                savedUser.getRole().name()
+                utilisateur.getRole().name(),
+                false,
+                null
         );
     }
 
@@ -93,13 +96,28 @@ public class AuthService {
         Utilisateur utilisateur = utilisateurRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
+        if (utilisateur.isTwoFactorEnabled()) {
+            String tempToken = jwtService.generateTemp2FAToken(utilisateur);
+
+            return new AuthResponse(
+                    utilisateur.getId(),
+                    null,
+                    "Code OTP requis",
+                    utilisateur.getRole().name(),
+                    true,
+                    tempToken
+            );
+        }
+
         String jwtToken = jwtService.generateToken(utilisateur);
 
         return new AuthResponse(
                 utilisateur.getId(),
                 jwtToken,
                 "Connexion réussie",
-                utilisateur.getRole().name()
+                utilisateur.getRole().name(),
+                false,
+                null
         );
     }
 
@@ -211,7 +229,37 @@ public class AuthService {
                 utilisateur.getId(),
                 jwtToken,
                 "Connexion Google réussie",
-                utilisateur.getRole().name()
+                utilisateur.getRole().name(),
+                false,
+                null
+        );
+    }
+
+    public AuthResponse verifyLogin2FA(VerifyLogin2FARequest request) {
+        String email = jwtService.extractUsername(request.getTempToken());
+
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        if (!jwtService.isTemp2FATokenValid(request.getTempToken(), utilisateur)) {
+            throw new RuntimeException("Temp token invalide ou expiré");
+        }
+
+        boolean validOtp = twoFactorAuthService.verifyCodeForLogin(email, request.getCode());
+
+        if (!validOtp) {
+            throw new RuntimeException("Code OTP invalide");
+        }
+
+        String jwtToken = jwtService.generateToken(utilisateur);
+
+        return new AuthResponse(
+                utilisateur.getId(),
+                jwtToken,
+                "Connexion réussie",
+                utilisateur.getRole().name(),
+                false,
+                null
         );
     }
 }
