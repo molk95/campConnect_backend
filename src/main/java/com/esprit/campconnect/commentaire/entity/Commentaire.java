@@ -1,6 +1,7 @@
 package com.esprit.campconnect.commentaire.entity;
 
 import com.esprit.campconnect.Publication.entity.Publication;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -13,25 +14,28 @@ public class Commentaire {
     private Long id;
 
     private String contenu;
-
+    private String auteurEmail;
+    private String auteurNom;
+    private Integer likesCount = 0;
     private LocalDateTime dateCreation;
 
-    private Integer likesCount = 0;
-
-    @ManyToOne
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "publication_id")
     private Publication publication;
 
     @PrePersist
     public void prePersist() {
-        this.dateCreation = LocalDateTime.now();
-        if (this.likesCount == null) {
-            this.likesCount = 0;
-        }
+        if (this.dateCreation == null) this.dateCreation = LocalDateTime.now();
+        if (this.likesCount == null) this.likesCount = 0;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public String getContenu() {
@@ -42,12 +46,20 @@ public class Commentaire {
         this.contenu = contenu;
     }
 
-    public LocalDateTime getDateCreation() {
-        return dateCreation;
+    public String getAuteurEmail() {
+        return auteurEmail;
     }
 
-    public void setDateCreation(LocalDateTime dateCreation) {
-        this.dateCreation = dateCreation;
+    public void setAuteurEmail(String auteurEmail) {
+        this.auteurEmail = auteurEmail;
+    }
+
+    public String getAuteurNom() {
+        return auteurNom;
+    }
+
+    public void setAuteurNom(String auteurNom) {
+        this.auteurNom = auteurNom;
     }
 
     public Integer getLikesCount() {
@@ -56,6 +68,14 @@ public class Commentaire {
 
     public void setLikesCount(Integer likesCount) {
         this.likesCount = likesCount;
+    }
+
+    public LocalDateTime getDateCreation() {
+        return dateCreation;
+    }
+
+    public void setDateCreation(LocalDateTime dateCreation) {
+        this.dateCreation = dateCreation;
     }
 
     public Publication getPublication() {
