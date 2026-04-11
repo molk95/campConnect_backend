@@ -7,7 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name="Authentification")
+@Tag(name = "Authentification")
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -26,6 +26,11 @@ public class AuthController {
         return authService.login(request);
     }
 
+    @PostMapping("/login/verify-2fa")
+    public AuthResponse verifyLogin2FA(@RequestBody VerifyLogin2FARequest request) {
+        return authService.verifyLogin2FA(request);
+    }
+
     @PostMapping("/forgot-password")
     public String forgotPassword(@RequestBody ForgotPasswordRequest request) {
         return authService.forgotPassword(request);
@@ -40,6 +45,4 @@ public class AuthController {
     public AuthResponse googleLogin(@RequestBody GoogleLoginRequest request) {
         return authService.loginWithGoogle(request);
     }
-
-
 }
