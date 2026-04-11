@@ -28,27 +28,25 @@ public class ReclamationController {
     private final IReclamationNotificationService notifService;
     private final UtilisateurRepository utilisateurRepository;
 
-    // ✅ CREATE avec utilisateur connecté (email)
+
+
+
+
     @PostMapping
-    public Reclamation create(@RequestBody Reclamation reclamation, Authentication authentication) {
+    public Reclamation create(@RequestBody Reclamation reclamation) {
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur non authentifié");
-        }
+        Long userId = reclamation.getUtilisateur().getId();
 
-        // 🔑 récupérer email depuis Spring Security
-        String email = authentication.getName();
-
-        // 🔎 récupérer utilisateur depuis la base
-        Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
+        Utilisateur utilisateur = utilisateurRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable"));
 
-        // 🔗 associer utilisateur
         reclamation.setUtilisateur(utilisateur);
 
-        // 💾 sauvegarde
         return reclamationService.createReclamation(reclamation);
     }
+
+
+
 
     @GetMapping
     public List<Reclamation> getAll() {
@@ -59,7 +57,16 @@ public class ReclamationController {
     public Reclamation getById(@PathVariable Long id) {
         return reclamationService.getReclamationById(id);
     }
+    @GetMapping("/me")
+    public List<Reclamation> getMyReclamationById(Authentication authentication) {
 
+        String email = authentication.getName();
+
+        Utilisateur user = utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return reclamationService.getReclamationsByUtilisateur(user.getId());
+    }
     @PutMapping("/{id}")
     public Reclamation update(@PathVariable Long id, @RequestBody Reclamation reclamation) {
         return reclamationService.updateReclamation(id, reclamation);
