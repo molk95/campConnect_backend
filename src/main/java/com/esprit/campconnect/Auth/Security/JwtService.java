@@ -27,6 +27,7 @@ public class JwtService {
     private long jwtExpiration;
 
     private static final long JWT_EXPIRATION = 1000 * 60 * 60 * 24;
+    private static final long TEMP_2FA_EXPIRATION = 1000L * 60 * 5;
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -34,6 +35,10 @@ public class JwtService {
 
     public String extractRole(String token) {
         return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get("tokenType", String.class));
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -51,7 +56,24 @@ public class JwtService {
                 .orElse("ROLE_CLIENT");
 
         claims.put("role", role);
+        claims.put("tokenType", "ACCESS");
 
+        return generateToken(claims, userDetails, JWT_EXPIRATION);
+    }
+
+    public String generateTemp2FAToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+
+        Collection<? extends GrantedAuthority> authorities = userDetails.getAuthorities();
+        String role = authorities.stream()
+                .findFirst()
+                .map(GrantedAuthority::getAuthority)
+                .orElse("ROLE_CLIENT");
+
+        claims.put("role", role);
+        claims.put("tokenType", "TEMP_2FA");
+
+        return generateToken(claims, userDetails, TEMP_2FA_EXPIRATION);
         // Add userId if userDetails is a Utilisateur
         if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur) {
             Long userId = ((com.esprit.campconnect.User.Entity.Utilisateur) userDetails).getId();
@@ -72,11 +94,15 @@ public class JwtService {
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        return generateToken(extraClaims, userDetails, JWT_EXPIRATION);
+    }
+
+    private String generateToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
         return Jwts.builder()
                 .setClaims(extraClaims)
-                .setSubject(userDetails.getUsername()) // email
+                .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + JWT_EXPIRATION))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -84,6 +110,15 @@ public class JwtService {
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    }
+
+    public boolean isTemp2FATokenValid(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        final String tokenType = extractTokenType(token);
+
+        return username.equals(userDetails.getUsername())
+                && "TEMP_2FA".equals(tokenType)
+                && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {

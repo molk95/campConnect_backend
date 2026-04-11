@@ -2,7 +2,6 @@ package com.esprit.campconnect.User.Controller;
 
 import com.esprit.campconnect.User.DTO.ProfilDTO;
 import com.esprit.campconnect.User.Entity.Profil;
-import com.esprit.campconnect.User.Repository.ProfilRepository;
 import com.esprit.campconnect.User.Service.IProfilService;
 import com.esprit.campconnect.User.Service.ProfilDTOAutoImp;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,14 +14,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@Tag(name="Gestion de profil")
+@Tag(name = "Gestion de profil")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/profil")
 @CrossOrigin("*")
-
-
 public class ProfilController {
+
     private final IProfilService profilService;
     private final ProfilDTOAutoImp profilDTOAutoImp;
 
@@ -48,12 +46,10 @@ public class ProfilController {
         return profilService.retrieveProfil(id);
     }
 
-
     @PutMapping("/updateProfil")
     public Profil modifyProfil(@RequestBody Profil profil) {
         return profilService.updateProfil(profil);
     }
-
 
     @GetMapping("/me")
     public Profil getMyProfile(Authentication authentication) {
@@ -79,6 +75,4 @@ public class ProfilController {
         String email = authentication.getName();
         return profilService.updatePhotoUrl(email, photoUrl);
     }
-
-
 }
