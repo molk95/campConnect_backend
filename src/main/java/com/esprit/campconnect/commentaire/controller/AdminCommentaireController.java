@@ -38,6 +38,6 @@ public class AdminCommentaireController {
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable Long id) {
         commentaireService.delete(id);
-        return ResponseEntity.ok("Commentaire supprimé avec succès");
+        return ResponseEntity.ok("Commentaire supprimÃ© avec succÃ¨s");
     }
 }
