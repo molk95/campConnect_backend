@@ -346,7 +346,7 @@ public class ReservationServiceImpl implements IReservationService {
                 .orElseThrow(() -> new RuntimeException("Reservation not found"));
 
         validateAttendanceManagementAccess(reservation, requesterEmail, requesterIsAdmin);
-        validateAttendanceRecordingEligibility(reservation);
+        validateNoShowRecordingEligibility(reservation);
 
         reservation.setStatut(ReservationStatus.NO_SHOW);
         reservation.setDateModification(LocalDateTime.now());
@@ -1033,6 +1033,18 @@ public class ReservationServiceImpl implements IReservationService {
         );
     }
 
+    private void validateNoShowRecordingEligibility(Reservation reservation) {
+        String noShowBlockReason = getNoShowRecordingBlockReason(reservation);
+        if (noShowBlockReason == null) {
+            return;
+        }
+
+        throw new ResponseStatusException(
+                reservation == null ? HttpStatus.NOT_FOUND : HttpStatus.CONFLICT,
+                noShowBlockReason
+        );
+    }
+
     private boolean isAttendanceRecordable(Reservation reservation) {
         return getAttendanceRecordingBlockReason(reservation) == null;
     }
@@ -1058,6 +1070,32 @@ public class ReservationServiceImpl implements IReservationService {
 
         if (LocalDateTime.now().isBefore(event.getDateDebut())) {
             return "Attendance can only be recorded on or after the event start time";
+        }
+
+        return null;
+    }
+
+    private String getNoShowRecordingBlockReason(Reservation reservation) {
+        if (reservation == null) {
+            return "Reservation not found";
+        }
+
+        ReservationStatus status = reservation.getStatut();
+        if (status != ReservationStatus.CONFIRMED && status != ReservationStatus.PAID) {
+            return "Only approved reservations can be marked as attended or no-show";
+        }
+
+        if (Boolean.TRUE.equals(reservation.getEstEnAttente())) {
+            return "Waitlist reservations cannot be marked as attended or no-show";
+        }
+
+        Event event = reservation.getEvent();
+        if (event == null || event.getDateFin() == null) {
+            return "No-show can only be recorded after the event has finished";
+        }
+
+        if (LocalDateTime.now().isBefore(event.getDateFin())) {
+            return "No-show can only be recorded after the event has finished";
         }
 
         return null;

@@ -215,6 +215,34 @@ class ReservationServiceImplTest {
     }
 
     @Test
+    void markAsNoShowRequiresEventToBeCompleted() {
+        Reservation reservation = buildReservation();
+        reservation.setStatut(ReservationStatus.CONFIRMED);
+        reservation.getEvent().setDateDebut(LocalDateTime.now().minusHours(2));
+        reservation.getEvent().setDateFin(LocalDateTime.now().plusHours(2));
+
+        when(reservationRepository.findById(19L)).thenReturn(Optional.of(reservation));
+
+        assertThatThrownBy(() -> reservationService.markAsNoShow(19L, "admin@campconnect.test", true))
+                .hasMessageContaining("No-show can only be recorded after the event has finished");
+    }
+
+    @Test
+    void markAsNoShowAllowsCompletedEvents() {
+        Reservation reservation = buildReservation();
+        reservation.setStatut(ReservationStatus.CONFIRMED);
+        reservation.getEvent().setDateDebut(LocalDateTime.now().minusHours(5));
+        reservation.getEvent().setDateFin(LocalDateTime.now().minusHours(1));
+
+        when(reservationRepository.findById(19L)).thenReturn(Optional.of(reservation));
+
+        reservationService.markAsNoShow(19L, "admin@campconnect.test", true);
+
+        assertThat(reservation.getStatut()).isEqualTo(ReservationStatus.NO_SHOW);
+        verify(reservationRepository).save(reservation);
+    }
+
+    @Test
     void createReservationRejectsEventsThatAlreadyFinished() {
         Utilisateur user = new Utilisateur();
         user.setId(5L);
