@@ -55,6 +55,7 @@ public class SecurityConfig {
                                 "/site-camping-avis/**",
                                 "/inscriptionsite/**",
                                 "/reclamations/**",
+                        "/reclamation-notifications/**",
                                 "/repas/**",
                                 "/commandes-repas/**",
                                 "/produits/**",
