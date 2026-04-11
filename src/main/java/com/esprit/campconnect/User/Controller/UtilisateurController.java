@@ -1,6 +1,8 @@
 package com.esprit.campconnect.User.Controller;
 
+import com.esprit.campconnect.Auth.DTO.CurrentUserDTO;
 import com.esprit.campconnect.User.DTO.UtilisateurDTO;
+import com.esprit.campconnect.User.Entity.Profil;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import com.esprit.campconnect.User.Service.IUtilisateurService;
@@ -9,20 +11,56 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 @Tag(name="Gestion d'utilisateur")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/user")
+@RequestMapping("/utilisateurs")
 @CrossOrigin("*")
 
 public class UtilisateurController {
 
     private final IUtilisateurService utilisateurService;
     private final UtilisateurDTOAutoImp utilisateurDTOAutoImp;
+    private final UtilisateurRepository utilisateurRepository;
+
+    @Operation(description = "Récupérer l'utilisateur courant authentifié")
+    @GetMapping("/me")
+    public CurrentUserDTO getCurrentUser(Authentication authentication) {
+        if (authentication == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur non authentifié");
+        }
+
+        String email = authentication.getName();
+
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable"));
+
+        Profil profil = utilisateur.getProfil();
+        if (profil == null) {
+            profil = new Profil();
+            profil.setAdresse("");
+            profil.setPhoto("");
+            profil.setBiographie("");
+        }
+
+        return new CurrentUserDTO(
+                utilisateur.getId(),
+                utilisateur.getNom(),
+                utilisateur.getEmail(),
+                utilisateur.getTelephone(),
+                utilisateur.getRole(),
+                profil.getAdresse(),
+                profil.getPhoto(),
+                profil.getBiographie()
+        );
+    }
 
     @Operation(description = "Récupérer un utilisateur sans données confidentielles")
     @GetMapping("/DtoUser/{id}")
@@ -60,7 +98,4 @@ public class UtilisateurController {
     public void removeUtilisateur(@PathVariable Long id) {
         utilisateurService.removeUtilisateur(id);
     }
-
-
-
 }

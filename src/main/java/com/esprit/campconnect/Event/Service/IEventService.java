@@ -50,6 +50,7 @@ public interface IEventService {
     void completeEvent(Long eventId);
     void cancelEvent(Long eventId, String reason);
     void postponeEvent(Long eventId, LocalDateTime newStartDate, LocalDateTime newEndDate);
+    void synchronizeLifecycleStatuses();
 
     // Analytics
     List<EventResponseDTO> getEventsBetweenDates(LocalDateTime startDate, LocalDateTime endDate);

@@ -1,9 +1,11 @@
 package com.esprit.campconnect.Reservation.Service;
 
 import com.esprit.campconnect.Event.Entity.Event;
+import com.esprit.campconnect.Event.Enum.EventStatus;
 import com.esprit.campconnect.Event.Repository.EventRepository;
 import com.esprit.campconnect.Reservation.DTO.PaymentProcessDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationCancellationPolicyDTO;
+import com.esprit.campconnect.Reservation.DTO.ReservationFeedbackRequestDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationRequestDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationResponseDTO;
 import com.esprit.campconnect.Reservation.DTO.StripeCheckoutSessionResponseDTO;
@@ -13,6 +15,7 @@ import com.esprit.campconnect.Reservation.Enum.CancellationPolicyTier;
 import com.esprit.campconnect.Reservation.Enum.PaymentStatus;
 import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
 import com.esprit.campconnect.Reservation.Repository.ReservationRepository;
+import com.esprit.campconnect.User.Entity.Role;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import com.stripe.model.EventDataObjectDeserializer;
@@ -30,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -53,11 +57,16 @@ public class ReservationServiceImpl implements IReservationService {
 
     private static final int FULL_REFUND_WINDOW_HOURS = 48;
     private static final int PARTIAL_REFUND_WINDOW_HOURS = 24;
+    private static final int WAITLIST_SEAT_HOLD_HOURS = 12;
     private static final BigDecimal PARTIAL_REFUND_RATE = new BigDecimal("0.50");
     private static final String WAITLIST_AUTO_REFUND_REASON =
             "Waitlist payment refunded automatically because no seat opened before the event started";
     private static final String WAITLIST_AUTO_CLOSE_REASON =
             "Waitlist request closed automatically because the event started without an opening";
+    private static final String WAITLIST_OFFER_EXPIRED_REASON =
+            "Temporary seat offer expired before payment was completed";
+    private static final DateTimeFormatter RESERVATION_TIMELINE_FORMATTER =
+            DateTimeFormatter.ofPattern("EEE, MMM d 'at' h:mm a");
 
     // ============== CRUD OPERATIONS ==============
 
@@ -69,6 +78,7 @@ public class ReservationServiceImpl implements IReservationService {
         Utilisateur user = getUserOrThrow(requestDTO.getUtilisateurId());
         Event event = getEventOrThrow(requestDTO.getEventId());
 
+        validateEventBookingAvailability(event);
         validateParticipantsAgainstCapacity(event, requestDTO.getNombreParticipants());
         validateActiveReservationConflict(requestDTO.getUtilisateurId(), requestDTO.getEventId(), null);
 
@@ -106,55 +116,40 @@ public class ReservationServiceImpl implements IReservationService {
 
         notifyReservationCreated(savedReservation);
 
-        // TODO: Send confirmation email
-
         return mapToResponseDTO(savedReservation);
     }
 
     @Override
-    @Transactional
     public ReservationResponseDTO getReservationById(Long id) {
         log.info("Fetching reservation with id: {}", id);
-        Reservation reservation = reservationRepository.findById(id)
+        Reservation reservation = reservationRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new RuntimeException("Reservation not found with id: " + id));
-        return mapToResponseDTO(reservation);
+        return mapToResponseDTO(reservation, true);
     }
 
     @Override
-    @Transactional
     public List<ReservationResponseDTO> getAllReservations() {
         log.info("Fetching all reservations");
-        return reservationRepository.findAll().stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapReservationsToResponseDTOs(reservationRepository.findAllWithDetails());
     }
 
     @Override
-    @Transactional
     public List<ReservationResponseDTO> getReservationsForAuthenticatedUser(String requesterEmail) {
         Utilisateur requester = getUserByEmailOrThrow(requesterEmail);
         log.info("Fetching reservations for authenticated user: {}", requester.getId());
-        return reservationRepository.findByUtilisateurId(requester.getId()).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapReservationsToResponseDTOs(reservationRepository.findByUtilisateurIdWithDetails(requester.getId()));
     }
 
     @Override
-    @Transactional
     public List<ReservationResponseDTO> getReservationsByUser(Long userId) {
         log.info("Fetching reservations for user: {}", userId);
-        return reservationRepository.findByUtilisateurId(userId).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapReservationsToResponseDTOs(reservationRepository.findByUtilisateurIdWithDetails(userId));
     }
 
     @Override
-    @Transactional
     public List<ReservationResponseDTO> getReservationsByEvent(Long eventId) {
         log.info("Fetching reservations for event: {}", eventId);
-        return reservationRepository.findByEventId(eventId).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapReservationsToResponseDTOs(reservationRepository.findByEventIdWithDetails(eventId));
     }
 
     @Override
@@ -171,6 +166,7 @@ public class ReservationServiceImpl implements IReservationService {
         Utilisateur user = getUserOrThrow(requestDTO.getUtilisateurId());
         Event event = getEventOrThrow(requestDTO.getEventId());
 
+        validateEventBookingAvailability(event);
         validateParticipantsAgainstCapacity(event, requestDTO.getNombreParticipants());
         validateActiveReservationConflict(user.getId(), event.getId(), reservation.getId());
 
@@ -197,7 +193,7 @@ public class ReservationServiceImpl implements IReservationService {
         if (reservation.getEstEnAttente()) {
             reservation.setStatut(ReservationStatus.PENDING);
         } else if (reservation.getStatutPaiement() == PaymentStatus.PAID) {
-            reservation.setStatut(ReservationStatus.PAID);
+            reservation.setStatut(ReservationStatus.CONFIRMED);
         } else if (reservation.getStatut() == ReservationStatus.PENDING && !requiresReservationApproval(event)) {
             reservation.setStatut(ReservationStatus.CONFIRMED);
         }
@@ -237,7 +233,6 @@ public class ReservationServiceImpl implements IReservationService {
         }
 
         log.info("Reservation cancelled successfully");
-        // TODO: Send cancellation email
     }
 
     // ============== RESERVATION MANAGEMENT ==============
@@ -258,16 +253,14 @@ public class ReservationServiceImpl implements IReservationService {
             throw new RuntimeException("Not enough seats available to confirm this reservation");
         }
 
-        reservation.setStatut(reservation.getStatutPaiement() == PaymentStatus.PAID
-                ? ReservationStatus.PAID
-                : ReservationStatus.CONFIRMED);
+        reservation.setStatut(ReservationStatus.CONFIRMED);
         reservation.setEstEnAttente(false);
+        clearWaitlistSeatOffer(reservation);
         reservation.setDateModification(LocalDateTime.now());
         Reservation savedReservation = reservationRepository.save(reservation);
 
         log.info("Reservation confirmed successfully");
         userNotificationService.notifyBookingConfirmed(savedReservation);
-        // TODO: Send confirmation email
     }
 
     @Override
@@ -296,20 +289,64 @@ public class ReservationServiceImpl implements IReservationService {
         reservationRepository.save(reservation);
 
         log.info("Reservation rejected successfully");
-        // TODO: Send rejection email
     }
 
     @Override
-    public void markAsNoShow(Long id) {
+    public void markAsAttended(Long id, String requesterEmail, boolean requesterIsAdmin) {
+        log.info("Marking reservation as ATTENDED with id: {}", id);
+
+        Reservation reservation = reservationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Reservation not found"));
+
+        validateAttendanceManagementAccess(reservation, requesterEmail, requesterIsAdmin);
+        validateAttendanceRecordingEligibility(reservation);
+        persistAttendanceRecordedReservation(reservation, LocalDateTime.now());
+
+        log.info("Reservation marked as ATTENDED");
+    }
+
+    @Override
+    public List<ReservationResponseDTO> markEligibleReservationsAsAttended(Long eventId, String requesterEmail, boolean requesterIsAdmin) {
+        log.info("Marking eligible reservations as ATTENDED for event {}", eventId);
+
+        Event event = getEventOrThrow(eventId);
+        validateAttendanceManagementAccess(event, requesterEmail, requesterIsAdmin);
+
+        LocalDateTime now = LocalDateTime.now();
+        synchronizeEventLifecycleStatus(event, now);
+
+        if (event.getDateDebut() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Attendance can only be recorded for reservations linked to a scheduled event"
+            );
+        }
+
+        if (now.isBefore(event.getDateDebut())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Attendance can only be recorded on or after the event start time"
+            );
+        }
+
+        List<Reservation> updatedReservations = reservationRepository.findByEventIdWithDetails(eventId).stream()
+                .filter(this::isAttendanceRecordable)
+                .map(reservation -> persistAttendanceRecordedReservation(reservation, now))
+                .toList();
+
+        log.info("Marked {} reservation(s) as ATTENDED for event {}", updatedReservations.size(), eventId);
+        return mapReservationsToResponseDTOs(updatedReservations);
+    }
+
+    @Override
+    public void markAsNoShow(Long id, String requesterEmail, boolean requesterIsAdmin) {
         log.info("Marking reservation as NO_SHOW with id: {}", id);
 
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reservation not found"));
 
-        if (reservation.getStatut() != ReservationStatus.CONFIRMED && 
-            reservation.getStatut() != ReservationStatus.PAID) {
-            throw new RuntimeException("Only confirmed or paid reservations can be marked as no-show");
-        }
+        validateAttendanceManagementAccess(reservation, requesterEmail, requesterIsAdmin);
+        validateAttendanceRecordingEligibility(reservation);
 
         reservation.setStatut(ReservationStatus.NO_SHOW);
         reservation.setDateModification(LocalDateTime.now());
@@ -335,8 +372,10 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setStatutPaiement(paymentDTO.getStatutPaiement());
         reservation.setTransactionId(paymentDTO.getTransactionId());
 
-        if (paymentDTO.getStatutPaiement() == PaymentStatus.PAID) {
+        boolean paymentConfirmed = paymentDTO.getStatutPaiement() == PaymentStatus.PAID;
+        if (paymentConfirmed) {
             reservation.setStatut(resolvePostPaymentStatus(reservation));
+            clearWaitlistSeatOffer(reservation);
             reservation.setDatePaiement(LocalDateTime.now());
             log.info("Payment successful for reservation: {}", reservation.getId());
         } else if (paymentDTO.getStatutPaiement() == PaymentStatus.FAILED) {
@@ -346,7 +385,12 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setDateModification(LocalDateTime.now());
         Reservation updatedReservation = reservationRepository.save(reservation);
 
+        if (paymentConfirmed) {
+            userNotificationService.notifyPaymentConfirmed(updatedReservation);
+        }
+
         return mapToResponseDTO(updatedReservation);
+
     }
 
     @Override
@@ -422,10 +466,32 @@ public class ReservationServiceImpl implements IReservationService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    public ReservationResponseDTO submitFeedback(
+            Long reservationId,
+            ReservationFeedbackRequestDTO requestDTO,
+            String requesterEmail,
+            boolean requesterIsAdmin
+    ) {
+        log.info("Submitting feedback for reservation {}", reservationId);
+
+        Reservation reservation = reservationRepository.findByIdWithDetails(reservationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
+
+        validateReservationAccess(reservation, requesterEmail, requesterIsAdmin);
+        validateFeedbackEligibility(reservation);
+
+        reservation.setFeedbackRating(requestDTO.getRating());
+        reservation.setFeedbackComment(StringUtils.hasText(requestDTO.getComment()) ? requestDTO.getComment().trim() : null);
+        reservation.setFeedbackSubmittedAt(LocalDateTime.now());
+        reservation.setDateModification(LocalDateTime.now());
+
+        return mapToResponseDTO(reservationRepository.save(reservation));
+    }
+
+    @Override
     public UserReservationStatsDTO getReservationStatsForUser(String requesterEmail) {
         Utilisateur requester = getUserByEmailOrThrow(requesterEmail);
-        List<Reservation> reservations = reservationRepository.findByUtilisateurId(requester.getId());
+        List<Reservation> reservations = reservationRepository.findByUtilisateurIdWithDetails(requester.getId());
         LocalDateTime now = LocalDateTime.now();
 
         long totalReservations = reservations.size();
@@ -520,6 +586,7 @@ public class ReservationServiceImpl implements IReservationService {
     public Double calculateReservationPrice(Long eventId, Integer numberOfParticipants) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
+        validateEventBookingAvailability(event);
         return event.getPrix().doubleValue() * numberOfParticipants;
     }
 
@@ -540,11 +607,17 @@ public class ReservationServiceImpl implements IReservationService {
             if (waitlistRes.getNombreParticipants() <= availableSeats) {
                 waitlistRes.setEstEnAttente(false);
                 waitlistRes.setStatut(resolveSeatPromotionStatus(waitlistRes));
+                if (hasCapturedFunds(waitlistRes)) {
+                    clearWaitlistSeatOffer(waitlistRes);
+                } else {
+                    LocalDateTime now = LocalDateTime.now();
+                    waitlistRes.setWaitlistOfferedAt(now);
+                    waitlistRes.setWaitlistOfferExpiresAt(resolveWaitlistOfferExpiry(waitlistRes, now));
+                }
                 waitlistRes.setDateModification(LocalDateTime.now());
                 Reservation promotedReservation = reservationRepository.save(waitlistRes);
                 log.info("Promoted reservation {} from waitlist to {}", waitlistRes.getId(), waitlistRes.getStatut());
                 userNotificationService.notifyWaitlistPromoted(promotedReservation);
-                // TODO: Send email notification
             } else {
                 break;
             }
@@ -578,6 +651,79 @@ public class ReservationServiceImpl implements IReservationService {
     }
 
     @Override
+    public void reconcileExpiredWaitlistOffers() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Reservation> expiredOffers = reservationRepository.findExpiredWaitlistOffers(now);
+        if (expiredOffers.isEmpty()) {
+            return;
+        }
+
+        log.info("Reconciling {} expired waitlist seat offer(s) at {}", expiredOffers.size(), now);
+        for (Reservation reservation : expiredOffers) {
+            if (!isExpiredWaitlistSeatOffer(reservation, now)) {
+                continue;
+            }
+
+            markReservationCancelled(reservation, WAITLIST_OFFER_EXPIRED_REASON);
+            clearWaitlistSeatOffer(reservation);
+            Reservation savedReservation = reservationRepository.save(reservation);
+            userNotificationService.notifyWaitlistOfferExpired(savedReservation);
+            processWaitlistToConfirmed(savedReservation.getEvent().getId());
+        }
+    }
+
+    @Override
+    public void dispatchUpcomingReservationReminders() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Reservation> reservations = reservationRepository.findUpcomingActiveReservationsWithDetails(now);
+        if (reservations.isEmpty()) {
+            return;
+        }
+
+        for (Reservation reservation : reservations) {
+            if (!canReceiveUpcomingReminder(reservation, now)) {
+                continue;
+            }
+
+            if (shouldSendSevenDayReminder(reservation, now)) {
+                reservation.setReminderSevenDaysSentAt(now);
+                Reservation savedReservation = reservationRepository.save(reservation);
+                userNotificationService.notifyEventReminder(savedReservation, "7 days");
+                continue;
+            }
+
+            if (shouldSendOneDayReminder(reservation, now)) {
+                reservation.setReminderOneDaySentAt(now);
+                Reservation savedReservation = reservationRepository.save(reservation);
+                userNotificationService.notifyEventReminder(savedReservation, "1 day");
+                continue;
+            }
+
+            if (shouldSendTwoHourReminder(reservation, now)) {
+                reservation.setReminderTwoHoursSentAt(now);
+                Reservation savedReservation = reservationRepository.save(reservation);
+                userNotificationService.notifyEventReminder(savedReservation, "2 hours");
+            }
+        }
+    }
+
+    @Override
+    public void requestPostEventFeedback() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Reservation> reservations = reservationRepository.findAttendedReservationsAwaitingFeedback(now);
+        if (reservations.isEmpty()) {
+            return;
+        }
+
+        log.info("Dispatching {} post-event feedback request(s)", reservations.size());
+        for (Reservation reservation : reservations) {
+            reservation.setFeedbackRequestedAt(now);
+            Reservation savedReservation = reservationRepository.save(reservation);
+            userNotificationService.notifyFeedbackRequested(savedReservation);
+        }
+    }
+
+    @Override
     @Transactional
     public List<ReservationResponseDTO> getEventWaitlist(Long eventId) {
         log.info("Fetching waitlist for event: {}", eventId);
@@ -596,34 +742,31 @@ public class ReservationServiceImpl implements IReservationService {
     // ============== QUERY OPERATIONS ==============
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ReservationResponseDTO> getPendingReservations() {
         log.info("Fetching pending reservations for admin approval");
-        return reservationRepository.findByStatut(ReservationStatus.PENDING).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapReservationsToResponseDTOs(reservationRepository.findByStatutWithDetails(ReservationStatus.PENDING));
     }
 
     @Override
-    @Transactional
     public List<ReservationResponseDTO> getUnpaidReservations() {
         log.info("Fetching unpaid reservations");
-        return reservationRepository.findByStatutPaiementNot(PaymentStatus.PAID).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapReservationsToResponseDTOs(
+                reservationRepository.findByStatutPaiementNotWithDetails(PaymentStatus.PAID)
+        );
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ReservationResponseDTO> getRefundableReservations() {
         log.info("Fetching refundable reservations");
-        return reservationRepository.findRefundableReservations().stream()
+        return reservationRepository.findRefundableReservationsWithDetails().stream()
                 .filter(this::hasCapturedFunds)
                 .filter(reservation -> {
                     CancellationPolicyTier tier = buildCancellationPolicy(reservation).getTier();
                     return tier == CancellationPolicyTier.FULL_REFUND || tier == CancellationPolicyTier.PARTIAL_REFUND;
                 })
-                .map(this::mapToResponseDTO)
+                .map(reservation -> mapToResponseDTO(reservation, false))
                 .collect(Collectors.toList());
     }
 
@@ -645,21 +788,10 @@ public class ReservationServiceImpl implements IReservationService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ReservationResponseDTO> getUserCancelledReservations(Long userId) {
         log.info("Fetching cancelled reservations for user: {}", userId);
-        return reservationRepository.findUserCancelledReservations(userId).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
-    }
-
-    // ============== HELPER METHODS ==============
-
-    /**
-     * Calculate total price for reservation
-     */
-    private BigDecimal calculatePrice(BigDecimal eventPrice, Integer numberOfParticipants) {
-        return eventPrice.multiply(new BigDecimal(numberOfParticipants));
+        return mapReservationsToResponseDTOs(reservationRepository.findUserCancelledReservationsWithDetails(userId));
     }
 
     private void notifyReservationCreated(Reservation reservation) {
@@ -672,7 +804,7 @@ public class ReservationServiceImpl implements IReservationService {
             return;
         }
 
-        if (reservation.getStatut() == ReservationStatus.CONFIRMED || reservation.getStatut() == ReservationStatus.PAID) {
+        if (resolveDisplayStatus(reservation) == ReservationStatus.CONFIRMED) {
             userNotificationService.notifyBookingConfirmed(reservation);
         }
     }
@@ -694,6 +826,65 @@ public class ReservationServiceImpl implements IReservationService {
     private Event getEventOrThrow(Long eventId) {
         return eventRepository.findById(eventId)
                 .orElseThrow(() -> new RuntimeException("Event not found with id: " + eventId));
+    }
+
+    private void validateEventBookingAvailability(Event event) {
+        if (event == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        EventStatus effectiveStatus = synchronizeEventLifecycleStatus(event, now);
+
+        if (effectiveStatus == EventStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cancelled events cannot accept reservations");
+        }
+
+        if (effectiveStatus == EventStatus.COMPLETED
+                || (event.getDateFin() != null && !event.getDateFin().isAfter(now))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This event has already finished");
+        }
+
+        if (event.getDateDebut() != null && !event.getDateDebut().isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Reservations close once the event has started");
+        }
+    }
+
+    private EventStatus synchronizeEventLifecycleStatus(Event event, LocalDateTime referenceTime) {
+        if (event == null || event.getStatut() == null) {
+            return null;
+        }
+
+        LocalDateTime effectiveReferenceTime = referenceTime != null ? referenceTime : LocalDateTime.now();
+        EventStatus effectiveStatus = resolveEventLifecycleStatus(event, effectiveReferenceTime);
+        if (effectiveStatus != null && effectiveStatus != event.getStatut()) {
+            event.setStatut(effectiveStatus);
+            event.setDateModification(effectiveReferenceTime);
+            eventRepository.save(event);
+        }
+
+        return effectiveStatus;
+    }
+
+    private EventStatus resolveEventLifecycleStatus(Event event, LocalDateTime referenceTime) {
+        if (event == null || event.getStatut() == null) {
+            return null;
+        }
+
+        if (event.getStatut() == EventStatus.CANCELLED || event.getStatut() == EventStatus.COMPLETED) {
+            return event.getStatut();
+        }
+
+        LocalDateTime effectiveReferenceTime = referenceTime != null ? referenceTime : LocalDateTime.now();
+        if (event.getDateFin() != null && !event.getDateFin().isAfter(effectiveReferenceTime)) {
+            return EventStatus.COMPLETED;
+        }
+
+        if (event.getDateDebut() != null && !event.getDateDebut().isAfter(effectiveReferenceTime)) {
+            return EventStatus.ONGOING;
+        }
+
+        return event.getStatut();
     }
 
     private void validateParticipantsAgainstCapacity(Event event, Integer requestedParticipants) {
@@ -750,7 +941,8 @@ public class ReservationServiceImpl implements IReservationService {
 
     private boolean countsTowardCapacity(Reservation reservation) {
         return reservation.getStatut() == ReservationStatus.CONFIRMED
-                || reservation.getStatut() == ReservationStatus.PAID;
+                || reservation.getStatut() == ReservationStatus.PAID
+                || reservation.getStatut() == ReservationStatus.ATTENDED;
     }
 
     private boolean requiresReservationApproval(Event event) {
@@ -774,20 +966,166 @@ public class ReservationServiceImpl implements IReservationService {
     }
 
     private ReservationStatus resolveSeatPromotionStatus(Reservation reservation) {
-        if (reservation == null) {
-            return ReservationStatus.CONFIRMED;
+        return ReservationStatus.CONFIRMED;
+    }
+
+    private LocalDateTime resolveWaitlistOfferExpiry(Reservation reservation, LocalDateTime offeredAt) {
+        LocalDateTime baseTime = offeredAt != null ? offeredAt : LocalDateTime.now();
+        LocalDateTime defaultExpiry = baseTime.plusHours(WAITLIST_SEAT_HOLD_HOURS);
+
+        if (reservation == null || reservation.getEvent() == null || reservation.getEvent().getDateDebut() == null) {
+            return defaultExpiry;
         }
 
-        if (reservation.getStatutPaiement() == PaymentStatus.PAID) {
-            return ReservationStatus.PAID;
+        LocalDateTime eventStart = reservation.getEvent().getDateDebut();
+        return eventStart.isBefore(defaultExpiry) ? eventStart : defaultExpiry;
+    }
+
+    private void clearWaitlistSeatOffer(Reservation reservation) {
+        if (reservation == null) {
+            return;
+        }
+
+        reservation.setWaitlistOfferedAt(null);
+        reservation.setWaitlistOfferExpiresAt(null);
+    }
+
+    private boolean isWaitlistSeatOfferActive(Reservation reservation, LocalDateTime referenceTime) {
+        if (reservation == null) {
+            return false;
+        }
+
+        if (Boolean.TRUE.equals(reservation.getEstEnAttente()) || hasCapturedFunds(reservation)) {
+            return false;
+        }
+
+        if (reservation.getWaitlistOfferExpiresAt() == null) {
+            return false;
+        }
+
+        LocalDateTime effectiveReferenceTime = referenceTime != null ? referenceTime : LocalDateTime.now();
+        return reservation.getStatut() == ReservationStatus.CONFIRMED
+                && reservation.getWaitlistOfferExpiresAt().isAfter(effectiveReferenceTime);
+    }
+
+    private boolean isExpiredWaitlistSeatOffer(Reservation reservation, LocalDateTime referenceTime) {
+        if (reservation == null
+                || Boolean.TRUE.equals(reservation.getEstEnAttente())
+                || hasCapturedFunds(reservation)
+                || reservation.getWaitlistOfferExpiresAt() == null) {
+            return false;
+        }
+
+        LocalDateTime effectiveReferenceTime = referenceTime != null ? referenceTime : LocalDateTime.now();
+        return reservation.getStatut() == ReservationStatus.CONFIRMED
+                && !reservation.getWaitlistOfferExpiresAt().isAfter(effectiveReferenceTime);
+    }
+
+    private void validateAttendanceRecordingEligibility(Reservation reservation) {
+        String attendanceBlockReason = getAttendanceRecordingBlockReason(reservation);
+        if (attendanceBlockReason == null) {
+            return;
+        }
+
+        throw new ResponseStatusException(
+                reservation == null ? HttpStatus.NOT_FOUND : HttpStatus.CONFLICT,
+                attendanceBlockReason
+        );
+    }
+
+    private boolean isAttendanceRecordable(Reservation reservation) {
+        return getAttendanceRecordingBlockReason(reservation) == null;
+    }
+
+    private String getAttendanceRecordingBlockReason(Reservation reservation) {
+        if (reservation == null) {
+            return "Reservation not found";
+        }
+
+        ReservationStatus status = reservation.getStatut();
+        if (status != ReservationStatus.CONFIRMED && status != ReservationStatus.PAID) {
+            return "Only approved reservations can be marked as attended or no-show";
+        }
+
+        if (Boolean.TRUE.equals(reservation.getEstEnAttente())) {
+            return "Waitlist reservations cannot be marked as attended or no-show";
         }
 
         Event event = reservation.getEvent();
-        if (requiresReservationApproval(event)) {
-            return ReservationStatus.PENDING;
+        if (event == null || event.getDateDebut() == null) {
+            return "Attendance can only be recorded for reservations linked to a scheduled event";
         }
 
-        return ReservationStatus.CONFIRMED;
+        if (LocalDateTime.now().isBefore(event.getDateDebut())) {
+            return "Attendance can only be recorded on or after the event start time";
+        }
+
+        return null;
+    }
+
+    private boolean canReceiveUpcomingReminder(Reservation reservation, LocalDateTime now) {
+        if (reservation == null || reservation.getEvent() == null || reservation.getEvent().getDateDebut() == null) {
+            return false;
+        }
+
+        if (Boolean.TRUE.equals(reservation.getEstEnAttente())) {
+            return false;
+        }
+
+        if (reservation.getStatut() == ReservationStatus.CANCELLED
+                || reservation.getStatut() == ReservationStatus.REFUNDED
+                || reservation.getStatut() == ReservationStatus.NO_SHOW
+                || reservation.getStatut() == ReservationStatus.ATTENDED) {
+            return false;
+        }
+
+        if (isWaitlistSeatOfferActive(reservation, now) && reservation.getStatutPaiement() != PaymentStatus.PAID) {
+            return false;
+        }
+
+        return reservation.getEvent().getDateDebut().isAfter(now);
+    }
+
+    private boolean shouldSendSevenDayReminder(Reservation reservation, LocalDateTime now) {
+        LocalDateTime eventStart = reservation.getEvent().getDateDebut();
+        return reservation.getReminderSevenDaysSentAt() == null
+                && !now.isBefore(eventStart.minusDays(7))
+                && now.isBefore(eventStart.minusDays(1));
+    }
+
+    private boolean shouldSendOneDayReminder(Reservation reservation, LocalDateTime now) {
+        LocalDateTime eventStart = reservation.getEvent().getDateDebut();
+        return reservation.getReminderOneDaySentAt() == null
+                && !now.isBefore(eventStart.minusDays(1))
+                && now.isBefore(eventStart.minusHours(2));
+    }
+
+    private boolean shouldSendTwoHourReminder(Reservation reservation, LocalDateTime now) {
+        LocalDateTime eventStart = reservation.getEvent().getDateDebut();
+        return reservation.getReminderTwoHoursSentAt() == null
+                && !now.isBefore(eventStart.minusHours(2))
+                && now.isBefore(eventStart);
+    }
+
+    private void validateFeedbackEligibility(Reservation reservation) {
+        if (reservation == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found");
+        }
+
+        if (reservation.getStatut() != ReservationStatus.ATTENDED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Feedback can only be submitted after the organizer marks the reservation as attended"
+            );
+        }
+
+        Event event = reservation.getEvent();
+        if (event == null || event.getDateFin() == null || event.getDateFin().isAfter(LocalDateTime.now())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Feedback opens only after the event has finished"
+            );
+        }
     }
 
     private void applyAutomatedCancellationPolicy(
@@ -855,6 +1193,7 @@ public class ReservationServiceImpl implements IReservationService {
 
         LocalDateTime now = LocalDateTime.now();
         reservation.setEstEnAttente(false);
+        clearWaitlistSeatOffer(reservation);
         reservation.setCancelledAt(now);
         reservation.setRefundedAt(now);
         reservation.setCancellationReason(StringUtils.hasText(reason) ? reason.trim() : null);
@@ -893,6 +1232,7 @@ public class ReservationServiceImpl implements IReservationService {
     private void markReservationCancelled(Reservation reservation, String reason) {
         LocalDateTime now = LocalDateTime.now();
         reservation.setEstEnAttente(false);
+        clearWaitlistSeatOffer(reservation);
         reservation.setCancelledAt(now);
         reservation.setCancellationReason(StringUtils.hasText(reason) ? reason.trim() : null);
         reservation.setStatut(ReservationStatus.CANCELLED);
@@ -946,7 +1286,7 @@ public class ReservationServiceImpl implements IReservationService {
         if (!hasCapturedFunds(reservation)) {
             dto.setTier(CancellationPolicyTier.FREE_CANCEL);
             dto.setTitle("Cancel before the event starts");
-            dto.setDescription("No payment has been captured yet. You can cancel this reservation before the event begins without triggering a refund.");
+            dto.setDescription("No payment has been captured yet. You can cancel this reservation before the event begins, and the seat is released immediately.");
             return dto;
         }
 
@@ -957,7 +1297,7 @@ public class ReservationServiceImpl implements IReservationService {
         if (fullRefundDeadline != null && !now.isAfter(fullRefundDeadline)) {
             dto.setTier(CancellationPolicyTier.FULL_REFUND);
             dto.setTitle("Full refund available");
-            dto.setDescription("Cancel at least 48 hours before the event start to receive a full Stripe refund.");
+            dto.setDescription("Cancel at least 48 hours before the event start to receive a full Stripe refund, and the seat goes back to inventory right away.");
             dto.setEligibleRefundAmount(refundableBaseAmount);
             dto.setEligibleRefundPercentage(100);
             return dto;
@@ -966,7 +1306,7 @@ public class ReservationServiceImpl implements IReservationService {
         if (partialRefundDeadline != null && !now.isAfter(partialRefundDeadline)) {
             dto.setTier(CancellationPolicyTier.PARTIAL_REFUND);
             dto.setTitle("Partial refund window");
-            dto.setDescription("Cancel between 24 and 48 hours before the event start to receive a 50% Stripe refund.");
+            dto.setDescription("Cancel between 24 and 48 hours before the event start to receive a 50% Stripe refund while the released seat becomes available again.");
             dto.setEligibleRefundAmount(calculatePartialRefundAmount(refundableBaseAmount));
             dto.setEligibleRefundPercentage(50);
             return dto;
@@ -974,7 +1314,7 @@ public class ReservationServiceImpl implements IReservationService {
 
         dto.setTier(CancellationPolicyTier.NO_REFUND);
         dto.setTitle("Cancellation remains open");
-        dto.setDescription("You can still cancel before the event starts, but refunds close inside the final 24 hours.");
+        dto.setDescription("You can still cancel before the event starts, but refunds close inside the final 24 hours even though the seat is released immediately.");
         return dto;
     }
 
@@ -1052,10 +1392,52 @@ public class ReservationServiceImpl implements IReservationService {
     }
 
     private boolean countsAsAttendedEvent(Reservation reservation) {
-        return reservation.getStatut() != ReservationStatus.CANCELLED
-                && reservation.getStatut() != ReservationStatus.REFUNDED
-                && reservation.getStatut() != ReservationStatus.NO_SHOW
-                && hasCapturedFunds(reservation);
+        return reservation.getStatut() == ReservationStatus.ATTENDED;
+    }
+
+    private boolean isFeedbackEligible(Reservation reservation) {
+        if (reservation == null || reservation.getStatut() != ReservationStatus.ATTENDED) {
+            return false;
+        }
+
+        if (reservation.getFeedbackSubmittedAt() != null) {
+            return false;
+        }
+
+        return reservation.getEvent() != null
+                && reservation.getEvent().getDateFin() != null
+                && !reservation.getEvent().getDateFin().isAfter(LocalDateTime.now());
+    }
+
+    private Reservation persistAttendanceRecordedReservation(Reservation reservation, LocalDateTime referenceTime) {
+        LocalDateTime effectiveReferenceTime = referenceTime != null ? referenceTime : LocalDateTime.now();
+        boolean requestFeedbackImmediately = shouldRequestFeedbackImmediately(reservation, effectiveReferenceTime);
+
+        reservation.setStatut(ReservationStatus.ATTENDED);
+        reservation.setEstEnAttente(false);
+        clearWaitlistSeatOffer(reservation);
+        if (requestFeedbackImmediately) {
+            reservation.setFeedbackRequestedAt(effectiveReferenceTime);
+        }
+        reservation.setDateModification(effectiveReferenceTime);
+
+        Reservation savedReservation = reservationRepository.save(reservation);
+        if (requestFeedbackImmediately) {
+            userNotificationService.notifyFeedbackRequested(savedReservation);
+        }
+
+        return savedReservation;
+    }
+
+    private boolean shouldRequestFeedbackImmediately(Reservation reservation, LocalDateTime referenceTime) {
+        if (reservation == null || reservation.getFeedbackSubmittedAt() != null || reservation.getFeedbackRequestedAt() != null) {
+            return false;
+        }
+
+        Event event = reservation.getEvent();
+        return event != null
+                && event.getDateFin() != null
+                && !event.getDateFin().isAfter(referenceTime != null ? referenceTime : LocalDateTime.now());
     }
 
     private boolean countsTowardFavoriteCategory(Reservation reservation) {
@@ -1080,6 +1462,30 @@ public class ReservationServiceImpl implements IReservationService {
         validateReservationAccess(reservation, requesterEmail, requesterIsAdmin);
     }
 
+    private void validateAttendanceManagementAccess(Reservation reservation, String requesterEmail, boolean requesterIsAdmin) {
+        validateAttendanceManagementAccess(reservation != null ? reservation.getEvent() : null, requesterEmail, requesterIsAdmin);
+    }
+
+    private void validateAttendanceManagementAccess(Event event, String requesterEmail, boolean requesterIsAdmin) {
+        if (requesterIsAdmin) {
+            return;
+        }
+
+        Utilisateur requester = getUserByEmailOrThrow(requesterEmail);
+        boolean isOrganizer = event != null
+                && event.getOrganizer() != null
+                && event.getOrganizer().getId() != null
+                && requester.getId() != null
+                && event.getOrganizer().getId().equals(requester.getId());
+
+        if (!isOrganizer || !hasEventManagementRole(requester)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to record attendance for this reservation"
+            );
+        }
+    }
+
     private void validateReservationAccess(Reservation reservation, String requesterEmail, boolean requesterIsAdmin) {
         if (requesterIsAdmin) {
             return;
@@ -1093,6 +1499,14 @@ public class ReservationServiceImpl implements IReservationService {
                     "You are not allowed to access this reservation"
             );
         }
+    }
+
+    private boolean hasEventManagementRole(Utilisateur requester) {
+        return requester != null
+                && requester.getRole() != null
+                && (requester.getRole() == Role.ADMINISTRATEUR
+                || requester.getRole() == Role.GERANT_RESTAU
+                || requester.getRole() == Role.GUIDE);
     }
 
     private void validateStripePaymentEligibility(Reservation reservation) {
@@ -1111,7 +1525,9 @@ public class ReservationServiceImpl implements IReservationService {
         boolean waitlistPaymentAllowed = Boolean.TRUE.equals(reservation.getEstEnAttente())
                 && reservation.getStatut() == ReservationStatus.PENDING;
 
-        if (reservation.getStatut() != ReservationStatus.CONFIRMED && !waitlistPaymentAllowed) {
+        boolean limitedSeatOfferAllowed = isWaitlistSeatOfferActive(reservation, LocalDateTime.now());
+
+        if (reservation.getStatut() != ReservationStatus.CONFIRMED && !waitlistPaymentAllowed && !limitedSeatOfferAllowed) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Only confirmed reservations or active waitlist reservations can be paid"
@@ -1235,6 +1651,7 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setStatutPaiement(PaymentStatus.PAID);
         reservation.setDatePaiement(reservation.getDatePaiement() != null ? reservation.getDatePaiement() : LocalDateTime.now());
         reservation.setDateModification(LocalDateTime.now());
+        clearWaitlistSeatOffer(reservation);
 
         if (reservation.getStatut() != ReservationStatus.CANCELLED && reservation.getStatut() != ReservationStatus.REFUNDED) {
             reservation.setStatut(resolvePostPaymentStatus(reservation));
@@ -1243,14 +1660,16 @@ public class ReservationServiceImpl implements IReservationService {
         Reservation updatedReservation = reservationRepository.save(reservation);
         updatedReservation = persistStripeInvoiceDetails(updatedReservation, resolveInvoiceForSession(session));
         log.info("Stripe payment confirmed for reservation {} with transaction {}", updatedReservation.getId(), transactionId);
-
         if (updatedReservation.getStatut() == ReservationStatus.CANCELLED) {
             log.warn("Reservation {} was cancelled before Stripe payment confirmation. Triggering immediate refund.", updatedReservation.getId());
             Reservation refundedReservation = forceFullRefund(updatedReservation, "Reservation cancelled before payment confirmation");
             return reservationRepository.findById(refundedReservation.getId()).orElse(refundedReservation);
         }
 
+        userNotificationService.notifyPaymentConfirmed(updatedReservation);
+
         return updatedReservation;
+
     }
 
     private ReservationStatus resolvePostPaymentStatus(Reservation reservation) {
@@ -1258,7 +1677,7 @@ public class ReservationServiceImpl implements IReservationService {
             return ReservationStatus.PENDING;
         }
 
-        return ReservationStatus.PAID;
+        return ReservationStatus.CONFIRMED;
     }
 
     private void handleCheckoutSessionCompletedWebhook(com.stripe.model.Event stripeEvent) {
@@ -1348,11 +1767,21 @@ public class ReservationServiceImpl implements IReservationService {
         return StringUtils.hasText(nextValue) && !nextValue.equals(currentValue);
     }
 
-    /**
-     * Map Reservation entity to ReservationResponseDTO
-     */
     private ReservationResponseDTO mapToResponseDTO(Reservation reservation) {
-        Reservation effectiveReservation = hydrateInvoiceDetailsForResponse(reservation);
+        return mapToResponseDTO(reservation, true);
+    }
+
+    private List<ReservationResponseDTO> mapReservationsToResponseDTOs(List<Reservation> reservations) {
+        return reservations.stream()
+                .map(reservation -> mapToResponseDTO(reservation, false))
+                .collect(Collectors.toList());
+    }
+
+    private ReservationResponseDTO mapToResponseDTO(Reservation reservation, boolean hydrateInvoiceDetails) {
+        Reservation effectiveReservation = hydrateInvoiceDetails
+                ? hydrateInvoiceDetailsForResponse(reservation)
+                : reservation;
+        ReservationStatus displayStatus = resolveDisplayStatus(effectiveReservation);
         ReservationResponseDTO dto = new ReservationResponseDTO();
         dto.setId(effectiveReservation.getId());
 
@@ -1370,7 +1799,9 @@ public class ReservationServiceImpl implements IReservationService {
             dto.setEventLieu(effectiveReservation.getEvent().getLieu());
         }
 
-        dto.setStatut(effectiveReservation.getStatut());
+        dto.setStatut(displayStatus);
+        dto.setStatusDescription(buildStatusDescription(effectiveReservation));
+        dto.setNextStepMessage(buildNextStepMessage(effectiveReservation));
         dto.setNombreParticipants(effectiveReservation.getNombreParticipants());
         dto.setBasePriceTotal(effectiveReservation.getBasePriceTotal());
         dto.setDiscountAmount(effectiveReservation.getDiscountAmount());
@@ -1395,6 +1826,9 @@ public class ReservationServiceImpl implements IReservationService {
         dto.setCancelledAt(effectiveReservation.getCancelledAt());
         dto.setRefundedAt(effectiveReservation.getRefundedAt());
         dto.setCancellationReason(effectiveReservation.getCancellationReason());
+        dto.setWaitlistOfferedAt(effectiveReservation.getWaitlistOfferedAt());
+        dto.setWaitlistOfferExpiresAt(effectiveReservation.getWaitlistOfferExpiresAt());
+        dto.setWaitlistOfferActive(isWaitlistSeatOfferActive(effectiveReservation, LocalDateTime.now()));
         dto.setReceiptAvailable(isReceiptAvailable(effectiveReservation));
         dto.setCancellationPolicy(buildCancellationPolicy(effectiveReservation));
         boolean calendarExportAvailable = reservationCalendarService.isCalendarExportAvailable(effectiveReservation);
@@ -1402,8 +1836,123 @@ public class ReservationServiceImpl implements IReservationService {
         dto.setGoogleCalendarUrl(calendarExportAvailable ? reservationCalendarService.buildGoogleCalendarUrl(effectiveReservation) : null);
         dto.setCalendarIcsDownloadUrl(calendarExportAvailable ? reservationCalendarService.buildIcsDownloadUrl(effectiveReservation.getId()) : null);
         dto.setCalendarIcsFileName(calendarExportAvailable ? reservationCalendarService.buildSuggestedFilename(effectiveReservation) : null);
+        dto.setAttendanceRecordable(isAttendanceRecordable(effectiveReservation));
+        dto.setFeedbackRating(effectiveReservation.getFeedbackRating());
+        dto.setFeedbackComment(effectiveReservation.getFeedbackComment());
+        dto.setFeedbackSubmittedAt(effectiveReservation.getFeedbackSubmittedAt());
+        dto.setFeedbackEligible(isFeedbackEligible(effectiveReservation));
 
         return dto;
+    }
+
+    private String buildStatusDescription(Reservation reservation) {
+        if (reservation == null) {
+            return null;
+        }
+
+        ReservationStatus displayStatus = resolveDisplayStatus(reservation);
+        if (displayStatus == null) {
+            return null;
+        }
+        if (Boolean.TRUE.equals(reservation.getEstEnAttente()) && displayStatus == ReservationStatus.PENDING) {
+            return "Waitlist request received";
+        }
+
+        if (isWaitlistSeatOfferActive(reservation, LocalDateTime.now())) {
+            return "Seat offered from the waitlist";
+        }
+
+        return switch (displayStatus) {
+            case PENDING -> "Reservation pending review";
+            case CONFIRMED -> reservation.getStatutPaiement() == PaymentStatus.PAID
+                    ? "Reservation confirmed and fully paid"
+                    : "Reservation confirmed";
+            case PAID -> "Reservation confirmed and fully paid";
+            case ATTENDED -> "Checked in by organizer";
+            case NO_SHOW -> "Marked as no-show by organizer";
+            case CANCELLED -> "Reservation cancelled";
+            case REFUNDED -> "Reservation refunded";
+        };
+    }
+
+    private String buildNextStepMessage(Reservation reservation) {
+        if (reservation == null) {
+            return null;
+        }
+
+        ReservationStatus displayStatus = resolveDisplayStatus(reservation);
+        if (displayStatus == null) {
+            return null;
+        }
+        String eventStartLabel = formatReservationDateTime(
+                reservation.getEvent() != null ? reservation.getEvent().getDateDebut() : null
+        );
+
+        if (Boolean.TRUE.equals(reservation.getEstEnAttente()) && displayStatus == ReservationStatus.PENDING) {
+            return hasCapturedFunds(reservation)
+                    ? "Your waitlist payment is secured. If a seat opens before the event starts, CampConnect promotes this reservation automatically; otherwise the full payment is refunded when the event starts."
+                    : "This reservation is still waiting for a seat to open. If payment is required for the waitlist, complete it before the event starts to keep your place in line.";
+        }
+
+        if (isWaitlistSeatOfferActive(reservation, LocalDateTime.now())) {
+            return StringUtils.hasText(formatReservationDateTime(reservation.getWaitlistOfferExpiresAt()))
+                    ? "A seat opened for you from the waitlist. Complete payment by "
+                    + formatReservationDateTime(reservation.getWaitlistOfferExpiresAt())
+                    + " or the spot will be released to the next guest automatically."
+                    : "A seat opened for you from the waitlist. Complete payment soon to keep the booking.";
+        }
+
+        return switch (displayStatus) {
+            case PENDING ->
+                    "The organizer still needs to review this reservation. Once it is approved, you can finish the remaining payment steps.";
+            case CONFIRMED -> reservation.getStatutPaiement() == PaymentStatus.PAID
+                    ? StringUtils.hasText(eventStartLabel)
+                            ? "Your booking is fully approved and paid. Bring this reservation with you on " + eventStartLabel + ". The organizer will record attended or no-show during check-in."
+                            : "Your booking is fully approved and paid. Bring this reservation on event day. The organizer will record attended or no-show during check-in."
+                    : StringUtils.hasText(eventStartLabel)
+                            ? "Your spot is approved. Complete payment before " + eventStartLabel + " to fully secure the booking."
+                            : "Your spot is approved. Complete payment before the event starts to fully secure the booking.";
+            case PAID ->
+                    StringUtils.hasText(eventStartLabel)
+                            ? "Your booking is fully approved and paid. Bring this reservation with you on " + eventStartLabel + ". The organizer will record attended or no-show during check-in."
+                            : "Your booking is fully approved and paid. Bring this reservation on event day. The organizer will record attended or no-show during check-in.";
+            case ATTENDED ->
+                    isFeedbackEligible(reservation)
+                            ? "Thanks for attending. You can now leave a quick rating and comment to help improve future events."
+                            : hasCapturedFunds(reservation)
+                            ? "The organizer marked this reservation as attended. Your receipt, invoice trail, and reservation history stay available here."
+                            : "The organizer marked this reservation as attended. Your reservation history stays available here for reference.";
+            case NO_SHOW ->
+                    "The organizer marked this reservation as no-show. Contact the organizer if this status was recorded by mistake.";
+            case CANCELLED ->
+                    hasCapturedFunds(reservation)
+                            ? "This reservation is closed. Any completed payment or refund trail stays available in the billing history."
+                            : "This reservation is closed and no further action is required.";
+            case REFUNDED ->
+                    "The reservation is closed and the completed refund trail stays available in your billing history.";
+        };
+    }
+
+    private ReservationStatus resolveDisplayStatus(Reservation reservation) {
+        if (reservation == null || reservation.getStatut() == null) {
+            return null;
+        }
+
+        if (reservation.getStatut() == ReservationStatus.PAID) {
+            return Boolean.TRUE.equals(reservation.getEstEnAttente())
+                    ? ReservationStatus.PENDING
+                    : ReservationStatus.CONFIRMED;
+        }
+
+        return reservation.getStatut();
+    }
+
+    private String formatReservationDateTime(LocalDateTime value) {
+        if (value == null) {
+            return null;
+        }
+
+        return RESERVATION_TIMELINE_FORMATTER.format(value);
     }
 
     private Reservation hydrateInvoiceDetailsForResponse(Reservation reservation) {

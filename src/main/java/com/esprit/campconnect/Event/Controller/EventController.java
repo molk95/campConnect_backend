@@ -289,6 +289,21 @@ public class EventController {
         return ResponseEntity.ok(promotionOfferService.getPublicActivePromotions());
     }
 
+    @GetMapping("/{eventId}/promotions")
+    @Operation(summary = "Get promotions for an event", description = "List active promo codes and auto-applied offers that are valid for the selected event")
+    @ApiResponse(responseCode = "200", description = "List of event promotions")
+    public ResponseEntity<List<PromotionOfferResponseDTO>> getPromotionsForEvent(@PathVariable Long eventId) {
+        return ResponseEntity.ok(promotionOfferService.getPublicActivePromotions(eventId));
+    }
+
+    @GetMapping("/{eventId}/promotions/admin")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    @Operation(summary = "Get event promotions for admin", description = "List all promotions configured for a specific event, including inactive ones")
+    @ApiResponse(responseCode = "200", description = "List of event promotions for admin")
+    public ResponseEntity<List<PromotionOfferResponseDTO>> getPromotionsForEventAdmin(@PathVariable Long eventId) {
+        return ResponseEntity.ok(promotionOfferService.getAllPromotions(eventId));
+    }
+
     @GetMapping("/pricing/preview")
     @Operation(summary = "Preview discounted reservation price", description = "Preview the final reservation total after promo codes or auto group offers are applied")
     @ApiResponse(responseCode = "200", description = "Pricing preview generated")

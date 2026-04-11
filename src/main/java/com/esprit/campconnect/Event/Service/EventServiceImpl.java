@@ -1,6 +1,7 @@
 package com.esprit.campconnect.Event.Service;
 
 import com.esprit.campconnect.Event.DTO.EventDuplicateRequestDTO;
+import com.esprit.campconnect.Event.DTO.EventFeedbackDTO;
 import com.esprit.campconnect.Event.DTO.EventImageDTO;
 import com.esprit.campconnect.Event.DTO.EventRequestDTO;
 import com.esprit.campconnect.Event.DTO.EventResponseDTO;
@@ -13,7 +14,10 @@ import com.esprit.campconnect.Event.Enum.RecurrenceFrequency;
 import com.esprit.campconnect.Event.Repository.EventFavoriteRepository;
 import com.esprit.campconnect.Event.Repository.EventImageRepository;
 import com.esprit.campconnect.Event.Repository.EventRepository;
+import com.esprit.campconnect.Reservation.Entity.Reservation;
 import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
+import com.esprit.campconnect.Reservation.Repository.ReservationRepository;
+import com.esprit.campconnect.Reservation.Service.UserNotificationService;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import com.esprit.campconnect.config.GoogleMapsService;
@@ -38,7 +42,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -52,6 +58,8 @@ public class EventServiceImpl implements IEventService {
     private final UtilisateurRepository utilisateurRepository;
     private final EventFavoriteRepository eventFavoriteRepository;
     private final EventImageRepository eventImageRepository;
+    private final ReservationRepository reservationRepository;
+    private final UserNotificationService userNotificationService;
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
     private final GoogleMapsService googleMapsService;
@@ -101,27 +109,21 @@ public class EventServiceImpl implements IEventService {
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getAllEvents() {
         log.info("Fetching all events");
-        return eventRepository.findAll().stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(eventRepository.findAll());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getPublishedEvents() {
         log.info("Fetching published events");
-        return eventRepository.findByPublishedTrueOrderByDateDebutAsc().stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(eventRepository.findByPublishedTrueOrderByDateDebutAsc());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getEventsByOrganizer(Long organizerId) {
         log.info("Fetching events for organizer: {}", organizerId);
-        return eventRepository.findByOrganizerId(organizerId).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(eventRepository.findByOrganizerId(organizerId));
     }
 
     @Override
@@ -286,11 +288,11 @@ public class EventServiceImpl implements IEventService {
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getFavoriteEvents(Long userId) {
         log.info("Fetching favorite events for user {}", userId);
-        return eventFavoriteRepository.findByUtilisateurIdOrderByDateCreationDesc(userId).stream()
+        List<Event> favoriteEvents = eventFavoriteRepository.findByUtilisateurIdWithEventOrderByDateCreationDesc(userId).stream()
                 .map(EventFavorite::getEvent)
                 .filter(Objects::nonNull)
-                .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(favoriteEvents);
     }
 
     @Override
@@ -316,17 +318,15 @@ public class EventServiceImpl implements IEventService {
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getEventsByCategory(EventCategory categorie) {
         log.info("Fetching events by category: {}", categorie);
-        return eventRepository.findByCategorie(categorie).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(eventRepository.findByCategorie(categorie));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getEventsByStatus(EventStatus statut) {
         log.info("Fetching events by status: {}", statut);
-        return eventRepository.findByStatut(statut).stream()
-                .map(this::mapToResponseDTO)
+        return mapEventsToSummaryDTOs(eventRepository.findAll()).stream()
+                .filter(event -> event.getStatut() == statut)
                 .collect(Collectors.toList());
     }
 
@@ -334,35 +334,39 @@ public class EventServiceImpl implements IEventService {
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getUpcomingEvents() {
         log.info("Fetching upcoming events");
-        return eventRepository.findByDateDebutAfterOrderByDateDebut(LocalDateTime.now()).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(eventRepository.findByDateDebutAfterOrderByDateDebut(LocalDateTime.now()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EventResponseDTO> searchEvents(String keyword) {
         log.info("Searching events with keyword: {}", keyword);
-        return eventRepository.searchByKeyword(keyword).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(eventRepository.searchByKeyword(keyword));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getEventsByLocation(String lieu) {
         log.info("Fetching events by location: {}", lieu);
-        return eventRepository.findByLieuContainingIgnoreCase(lieu).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(eventRepository.findByLieuContainingIgnoreCase(lieu));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getAvailableEvents() {
         log.info("Fetching available events");
-        return eventRepository.findEventsWithAvailableSpots().stream()
-                .map(this::mapToResponseDTO)
+        LocalDateTime now = LocalDateTime.now();
+        List<Event> reservableEvents = eventRepository.findAll().stream()
+                .filter(event -> isReservationOpen(event, resolveLifecycleStatus(event, now), now))
+                .collect(Collectors.toList());
+
+        EventResponseMetricsContext metricsContext = buildEventResponseMetricsContext(reservableEvents);
+        return reservableEvents.stream()
+                .filter(event -> {
+                    EventResponseMetrics metrics = metricsContext.get(event.getId());
+                    return !isFullyBooked(event.getCapaciteMax(), metrics.participantsCount());
+                })
+                .map(event -> mapToResponseDTO(event, metricsContext, false, false))
                 .collect(Collectors.toList());
     }
 
@@ -370,25 +374,41 @@ public class EventServiceImpl implements IEventService {
     @Transactional(readOnly = true)
     public boolean isEventAvailable(Long eventId) {
         Event event = getEventOrThrow(eventId);
-        return !event.isFullyBooked() && event.getStatut() == EventStatus.SCHEDULED;
+        LocalDateTime now = LocalDateTime.now();
+        EventStatus effectiveStatus = resolveLifecycleStatus(event, now);
+        if (!isReservationOpen(event, effectiveStatus, now)) {
+            return false;
+        }
+
+        EventResponseMetrics metrics = buildEventResponseMetricsContext(List.of(event)).get(event.getId());
+        return !isFullyBooked(event.getCapaciteMax(), metrics.participantsCount());
     }
 
     @Override
     @Transactional(readOnly = true)
     public Integer getAvailableSeats(Long eventId) {
-        return getEventOrThrow(eventId).getAvailableSeats();
+        Event event = getEventOrThrow(eventId);
+        LocalDateTime now = LocalDateTime.now();
+        if (!isReservationOpen(event, resolveLifecycleStatus(event, now), now)) {
+            return 0;
+        }
+
+        EventResponseMetrics metrics = buildEventResponseMetricsContext(List.of(event)).get(event.getId());
+        return calculateAvailableSeats(event.getCapaciteMax(), metrics.participantsCount());
     }
 
     @Override
     @Transactional(readOnly = true)
     public Long getParticipantCount(Long eventId) {
-        return getEventOrThrow(eventId).getParticipantsCount();
+        Event event = getEventOrThrow(eventId);
+        return buildEventResponseMetricsContext(List.of(event)).get(event.getId()).participantsCount();
     }
 
     @Override
     @Transactional(readOnly = true)
     public Long getWaitlistCount(Long eventId) {
-        return getEventOrThrow(eventId).getWaitlistCount();
+        Event event = getEventOrThrow(eventId);
+        return buildEventResponseMetricsContext(List.of(event)).get(event.getId()).waitlistCount();
     }
 
     @Override
@@ -433,6 +453,7 @@ public class EventServiceImpl implements IEventService {
         event.setStatut(EventStatus.CANCELLED);
         event.setDateModification(LocalDateTime.now());
         eventRepository.save(event);
+        notifyEventCancelled(event, reason);
         log.info("Event cancelled with reason: {}", reason);
     }
 
@@ -445,36 +466,66 @@ public class EventServiceImpl implements IEventService {
             throw badRequest("Cannot postpone an event that is ongoing or completed");
         }
 
+        LocalDateTime previousStart = event.getDateDebut();
+        LocalDateTime previousEnd = event.getDateFin();
         event.setDateDebut(newStartDate);
         event.setDateFin(newEndDate);
         event.setStatut(EventStatus.POSTPONED);
         event.setDateModification(LocalDateTime.now());
         eventRepository.save(event);
+        notifyEventPostponed(event, previousStart, previousEnd);
         log.info("Event postponed successfully");
+    }
+
+    @Override
+    public void synchronizeLifecycleStatuses() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Event> events = eventRepository.findAll();
+        List<Event> eventsToUpdate = new ArrayList<>();
+
+        for (Event event : events) {
+            EventStatus effectiveStatus = resolveLifecycleStatus(event, now);
+            if (effectiveStatus == null || effectiveStatus == event.getStatut()) {
+                continue;
+            }
+
+            event.setStatut(effectiveStatus);
+            event.setDateModification(now);
+            eventsToUpdate.add(event);
+        }
+
+        if (eventsToUpdate.isEmpty()) {
+            return;
+        }
+
+        eventRepository.saveAll(eventsToUpdate);
+        log.info("Synchronized {} event lifecycle status(es)", eventsToUpdate.size());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EventResponseDTO> getEventsBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {
         log.info("Fetching events between {} and {}", startDate, endDate);
-        return eventRepository.findEventsBetweenDates(startDate, endDate).stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return mapEventsToSummaryDTOs(eventRepository.findEventsBetweenDates(startDate, endDate));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Double calculateEventRevenue(Long eventId) {
         log.info("Calculating revenue for event: {}", eventId);
-        return 0.0;
+        return reservationRepository.calculateEventRevenue(eventId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Integer getTotalParticipantsForOrganizer(Long organizerId) {
         log.info("Getting total participants for organizer: {}", organizerId);
-        return eventRepository.findByOrganizerId(organizerId).stream()
-                .mapToInt(event -> (int) event.getParticipantsCount())
+        List<Event> organizerEvents = eventRepository.findByOrganizerId(organizerId);
+        EventResponseMetricsContext metricsContext = buildEventResponseMetricsContext(organizerEvents);
+        return organizerEvents.stream()
+                .map(Event::getId)
+                .map(metricsContext::get)
+                .mapToInt(metrics -> (int) metrics.participantsCount())
                 .sum();
     }
 
@@ -588,13 +639,44 @@ public class EventServiceImpl implements IEventService {
                 .collect(Collectors.toList());
     }
 
+    private List<EventResponseDTO> mapEventsToSummaryDTOs(List<Event> events) {
+        EventResponseMetricsContext metricsContext = buildEventResponseMetricsContext(events);
+        return events.stream()
+                .map(event -> mapToResponseDTO(event, metricsContext, false, false))
+                .collect(Collectors.toList());
+    }
+
     private EventResponseDTO mapToResponseDTO(Event event) {
+        return mapToResponseDTO(event, buildEventResponseMetricsContext(List.of(event)), true, true);
+    }
+
+    private EventResponseDTO mapToResponseDTO(
+            Event event,
+            EventResponseMetricsContext metricsContext,
+            boolean includeUploadedImages,
+            boolean includeFeedbackEntries
+    ) {
+        LocalDateTime now = LocalDateTime.now();
+        EventStatus effectiveStatus = resolveLifecycleStatus(event, now);
+        EventResponseMetrics metrics = metricsContext.get(event != null ? event.getId() : null);
+        long participantsCount = metrics.participantsCount();
+        long waitlistCount = metrics.waitlistCount();
+        long favoriteCount = metrics.favoriteCount();
+        double averageRating = metrics.averageRating();
+        long feedbackCount = metrics.feedbackCount();
+        boolean reservationOpen = isReservationOpen(event, effectiveStatus, now);
+        int availableSeats = reservationOpen
+                ? calculateAvailableSeats(event != null ? event.getCapaciteMax() : null, participantsCount)
+                : 0;
+        boolean fullyBooked = isFullyBooked(event != null ? event.getCapaciteMax() : null, participantsCount);
+        double occupancyRate = calculateOccupancyRate(event != null ? event.getCapaciteMax() : null, participantsCount);
+
         EventResponseDTO dto = new EventResponseDTO();
         dto.setId(event.getId());
         dto.setTitre(event.getTitre());
         dto.setDescription(event.getDescription());
         dto.setCategorie(event.getCategorie());
-        dto.setStatut(event.getStatut());
+        dto.setStatut(effectiveStatus);
         dto.setDateDebut(event.getDateDebut());
         dto.setDateFin(event.getDateFin());
         dto.setLieu(event.getLieu());
@@ -622,21 +704,27 @@ public class EventServiceImpl implements IEventService {
 
         dto.setDateCreation(event.getDateCreation());
         dto.setDateModification(event.getDateModification());
-        dto.setParticipantsCount(event.getParticipantsCount());
-        dto.setWaitlistCount(event.getWaitlistCount());
-        dto.setAvailableSeats(event.getAvailableSeats());
-        dto.setIsFullyBooked(event.isFullyBooked());
-        dto.setIsAlmostFull(event.isAlmostFull());
-        dto.setOccupancyRate(event.getOccupancyRate());
-        dto.setFavoriteCount(event.getId() == null ? 0L : eventFavoriteRepository.countByEventId(event.getId()));
+        dto.setParticipantsCount(participantsCount);
+        dto.setWaitlistCount(waitlistCount);
+        dto.setAvailableSeats(availableSeats);
+        dto.setIsFullyBooked(fullyBooked);
+        dto.setIsAlmostFull(reservationOpen && isAlmostFull(event != null ? event.getCapaciteMax() : null, participantsCount, fullyBooked));
+        dto.setOccupancyRate(occupancyRate);
+        dto.setFavoriteCount(favoriteCount);
+        dto.setAverageRating(feedbackCount > 0 ? averageRating : 0D);
+        dto.setFeedbackCount(feedbackCount);
 
-        List<EventImageDTO> imageDTOs = event.getId() == null
+        List<EventImageDTO> imageDTOs = !includeUploadedImages || event.getId() == null
                 ? List.of()
                 : getOrderedEventImages(event.getId()).stream()
                 .map(this::mapToImageDTO)
                 .collect(Collectors.toList());
         dto.setImages(imageDTOs);
-        dto.setImageCount(imageDTOs.size());
+        if (includeFeedbackEntries) {
+            dto.setFeedbackEntries(event != null && event.getId() != null
+                    ? buildEventFeedbackDTOs(event.getId())
+                    : List.of());
+        }
 
         List<String> uploadedImageUrls = imageDTOs.stream()
                 .map(EventImageDTO::getImageUrl)
@@ -683,8 +771,105 @@ public class EventServiceImpl implements IEventService {
 
         dto.setGalleryImageUrls(galleryImageUrls);
         dto.setGalleryImages(serializeGalleryUrls(galleryImageUrls));
+        dto.setImageCount(resolveImageCount(imageDTOs, legacyGalleryUrls, normalizedBanner, normalizedThumbnail));
 
         return dto;
+    }
+
+    private EventResponseMetricsContext buildEventResponseMetricsContext(List<Event> events) {
+        if (events == null || events.isEmpty()) {
+            return new EventResponseMetricsContext(Map.of());
+        }
+
+        List<Long> eventIds = events.stream()
+                .map(Event::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (eventIds.isEmpty()) {
+            return new EventResponseMetricsContext(Map.of());
+        }
+
+        Map<Long, Long> participantsByEventId = new HashMap<>();
+        Map<Long, Long> waitlistByEventId = new HashMap<>();
+        for (ReservationRepository.EventReservationStatsView stats : reservationRepository.summarizeParticipantsByEventIds(eventIds)) {
+            if (stats.getEventId() == null) {
+                continue;
+            }
+            participantsByEventId.put(stats.getEventId(), defaultLong(stats.getConfirmedParticipants()));
+            waitlistByEventId.put(stats.getEventId(), defaultLong(stats.getWaitlistParticipants()));
+        }
+
+        Map<Long, Long> favoritesByEventId = new HashMap<>();
+        for (EventFavoriteRepository.EventFavoriteCountView stats : eventFavoriteRepository.countFavoritesByEventIds(eventIds)) {
+            if (stats.getEventId() == null) {
+                continue;
+            }
+            favoritesByEventId.put(stats.getEventId(), defaultLong(stats.getFavoriteCount()));
+        }
+
+        Map<Long, Double> averageRatingsByEventId = new HashMap<>();
+        Map<Long, Long> feedbackCountsByEventId = new HashMap<>();
+        for (ReservationRepository.EventFeedbackSummaryView stats : reservationRepository.summarizeFeedbackByEventIds(eventIds)) {
+            if (stats.getEventId() == null) {
+                continue;
+            }
+            averageRatingsByEventId.put(stats.getEventId(), defaultDouble(stats.getAverageRating()));
+            feedbackCountsByEventId.put(stats.getEventId(), defaultLong(stats.getFeedbackResponses()));
+        }
+
+        Map<Long, EventResponseMetrics> metricsByEventId = new HashMap<>();
+        for (Long eventId : eventIds) {
+            metricsByEventId.put(
+                    eventId,
+                    new EventResponseMetrics(
+                            participantsByEventId.getOrDefault(eventId, 0L),
+                            waitlistByEventId.getOrDefault(eventId, 0L),
+                            favoritesByEventId.getOrDefault(eventId, 0L),
+                            averageRatingsByEventId.getOrDefault(eventId, 0D),
+                            feedbackCountsByEventId.getOrDefault(eventId, 0L)
+                    )
+            );
+        }
+
+        return new EventResponseMetricsContext(metricsByEventId);
+    }
+
+    private List<EventFeedbackDTO> buildEventFeedbackDTOs(Long eventId) {
+        return reservationRepository.findSubmittedFeedbackByEventId(eventId).stream()
+                .limit(6)
+                .map(this::mapToFeedbackDTO)
+                .collect(Collectors.toList());
+    }
+
+    private EventFeedbackDTO mapToFeedbackDTO(Reservation reservation) {
+        EventFeedbackDTO dto = new EventFeedbackDTO();
+        dto.setReviewerName(resolveReviewerName(reservation != null ? reservation.getUtilisateur() : null));
+        dto.setRating(reservation != null ? reservation.getFeedbackRating() : null);
+        dto.setComment(reservation != null ? reservation.getFeedbackComment() : null);
+        dto.setSubmittedAt(reservation != null ? reservation.getFeedbackSubmittedAt() : null);
+        return dto;
+    }
+
+    private void notifyEventCancelled(Event event, String reason) {
+        getNotifiableReservationsForEvent(event.getId())
+                .forEach(reservation -> userNotificationService.notifyEventCancelled(reservation, reason));
+    }
+
+    private void notifyEventPostponed(Event event, LocalDateTime previousStart, LocalDateTime previousEnd) {
+        getNotifiableReservationsForEvent(event.getId())
+                .forEach(reservation -> userNotificationService.notifyEventPostponed(reservation, previousStart, previousEnd));
+    }
+
+    private List<Reservation> getNotifiableReservationsForEvent(Long eventId) {
+        return reservationRepository.findByEventIdWithDetails(eventId).stream()
+                .filter(reservation -> reservation.getUtilisateur() != null)
+                .filter(reservation -> reservation.getStatut() != ReservationStatus.CANCELLED)
+                .filter(reservation -> reservation.getStatut() != ReservationStatus.REFUNDED)
+                .filter(reservation -> reservation.getStatut() != ReservationStatus.NO_SHOW)
+                .filter(reservation -> reservation.getStatut() != ReservationStatus.ATTENDED)
+                .toList();
     }
 
     private EventImageDTO mapToImageDTO(EventImage eventImage) {
@@ -704,6 +889,104 @@ public class EventServiceImpl implements IEventService {
         dto.setLastModified(eventImage.getLastModified());
         dto.setIsAvailable(true);
         return dto;
+    }
+
+    private int calculateAvailableSeats(Integer capacity, long participantsCount) {
+        int safeCapacity = capacity != null ? Math.max(0, capacity) : 0;
+        return (int) Math.max(0L, safeCapacity - participantsCount);
+    }
+
+    private boolean isFullyBooked(Integer capacity, long participantsCount) {
+        return capacity != null && participantsCount >= Math.max(0, capacity);
+    }
+
+    private double calculateOccupancyRate(Integer capacity, long participantsCount) {
+        if (capacity == null || capacity <= 0) {
+            return 0D;
+        }
+
+        return Math.min(1D, Math.max(0D, (double) participantsCount / capacity));
+    }
+
+    private boolean isAlmostFull(Integer capacity, long participantsCount, boolean fullyBooked) {
+        if (fullyBooked || capacity == null || capacity <= 0) {
+            return false;
+        }
+
+        int availableSeats = calculateAvailableSeats(capacity, participantsCount);
+        int urgencyThreshold = Math.max(3, (int) Math.ceil(capacity * 0.15));
+        return availableSeats > 0 && (availableSeats <= urgencyThreshold || calculateOccupancyRate(capacity, participantsCount) >= 0.8D);
+    }
+
+    private EventStatus resolveLifecycleStatus(Event event, LocalDateTime referenceTime) {
+        if (event == null || event.getStatut() == null) {
+            return null;
+        }
+
+        if (event.getStatut() == EventStatus.CANCELLED || event.getStatut() == EventStatus.COMPLETED) {
+            return event.getStatut();
+        }
+
+        LocalDateTime effectiveReferenceTime = referenceTime != null ? referenceTime : LocalDateTime.now();
+        if (event.getDateFin() != null && !event.getDateFin().isAfter(effectiveReferenceTime)) {
+            return EventStatus.COMPLETED;
+        }
+
+        if (event.getDateDebut() != null && !event.getDateDebut().isAfter(effectiveReferenceTime)) {
+            return EventStatus.ONGOING;
+        }
+
+        return event.getStatut();
+    }
+
+    private boolean isReservationOpen(Event event, EventStatus effectiveStatus, LocalDateTime referenceTime) {
+        if (event == null) {
+            return false;
+        }
+
+        LocalDateTime effectiveReferenceTime = referenceTime != null ? referenceTime : LocalDateTime.now();
+        EventStatus resolvedStatus = effectiveStatus != null ? effectiveStatus : resolveLifecycleStatus(event, effectiveReferenceTime);
+        if (resolvedStatus == null
+                || resolvedStatus == EventStatus.CANCELLED
+                || resolvedStatus == EventStatus.COMPLETED
+                || resolvedStatus == EventStatus.ONGOING) {
+            return false;
+        }
+
+        return event.getDateDebut() == null || event.getDateDebut().isAfter(effectiveReferenceTime);
+    }
+
+    private int resolveImageCount(
+            List<EventImageDTO> imageDTOs,
+            List<String> legacyGalleryUrls,
+            String normalizedBanner,
+            String normalizedThumbnail
+    ) {
+        if (imageDTOs != null && !imageDTOs.isEmpty()) {
+            return imageDTOs.size();
+        }
+
+        if (legacyGalleryUrls != null && !legacyGalleryUrls.isEmpty()) {
+            return legacyGalleryUrls.size();
+        }
+
+        return hasText(normalizedBanner) || hasText(normalizedThumbnail) ? 1 : 0;
+    }
+
+    private long defaultLong(Long value) {
+        return value != null ? value : 0L;
+    }
+
+    private double defaultDouble(Double value) {
+        return value != null ? value : 0D;
+    }
+
+    private String resolveReviewerName(Utilisateur utilisateur) {
+        if (utilisateur == null || !hasText(utilisateur.getNom())) {
+            return "CampConnect guest";
+        }
+
+        return utilisateur.getNom().trim();
     }
 
     private Boolean resolveReservationApprovalRequired(Boolean requestedValue, boolean fallbackValue) {
@@ -1160,6 +1443,26 @@ public class EventServiceImpl implements IEventService {
 
     private String buildEventImageContentUrl(Long imageId) {
         return "/api/events/images/" + imageId + "/content";
+    }
+
+    private record EventResponseMetrics(
+            long participantsCount,
+            long waitlistCount,
+            long favoriteCount,
+            double averageRating,
+            long feedbackCount
+    ) {
+    }
+
+    private record EventResponseMetricsContext(Map<Long, EventResponseMetrics> metricsByEventId) {
+        private static final EventResponseMetrics EMPTY = new EventResponseMetrics(0L, 0L, 0L, 0D, 0L);
+
+        private EventResponseMetrics get(Long eventId) {
+            if (eventId == null || metricsByEventId == null) {
+                return EMPTY;
+            }
+            return metricsByEventId.getOrDefault(eventId, EMPTY);
+        }
     }
 
     private ResponseStatusException notFound(String message) {

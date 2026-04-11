@@ -174,7 +174,7 @@ public class ReservationCalendarService {
         List<String> lines = new ArrayList<>();
         lines.add("Booked with CampConnect");
         lines.add("Reservation #" + reservation.getId());
-        lines.add("Reservation status: " + formatLabel(reservation.getStatut() != null ? reservation.getStatut().name() : "PENDING"));
+        lines.add("Reservation status: " + formatLabel(resolveCalendarStatus(reservation)));
         lines.add("Participants: " + (reservation.getNombreParticipants() != null ? reservation.getNombreParticipants() : 1));
 
         if (event.getOrganizer() != null) {
@@ -207,6 +207,18 @@ public class ReservationCalendarService {
         }
 
         return String.join("\n", lines);
+    }
+
+    private String resolveCalendarStatus(Reservation reservation) {
+        if (reservation == null || reservation.getStatut() == null) {
+            return "PENDING";
+        }
+
+        if (reservation.getStatut() == ReservationStatus.PAID) {
+            return "CONFIRMED";
+        }
+
+        return reservation.getStatut().name();
     }
 
     private String buildUid(Reservation reservation) {

@@ -17,4 +17,22 @@ public class ReservationMaintenanceScheduler {
         log.debug("Running scheduled waitlist reconciliation");
         reservationService.reconcileExpiredWaitlistReservations();
     }
+
+    @Scheduled(cron = "${app.reservations.waitlist-offer-reconciliation-cron:0 */10 * * * *}")
+    public void reconcileExpiredWaitlistOffers() {
+        log.debug("Running scheduled waitlist offer reconciliation");
+        reservationService.reconcileExpiredWaitlistOffers();
+    }
+
+    @Scheduled(cron = "${app.reservations.reminder-cron:0 */15 * * * *}")
+    public void dispatchUpcomingReservationReminders() {
+        log.debug("Running scheduled reservation reminder dispatch");
+        reservationService.dispatchUpcomingReservationReminders();
+    }
+
+    @Scheduled(cron = "${app.reservations.feedback-request-cron:0 0 * * * *}")
+    public void requestPostEventFeedback() {
+        log.debug("Running scheduled post-event feedback requests");
+        reservationService.requestPostEventFeedback();
+    }
 }

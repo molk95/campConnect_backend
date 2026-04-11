@@ -53,6 +53,12 @@ services:
       GOOGLE_MAPS_STATIC_MAP_ZOOM: ${GOOGLE_MAPS_STATIC_MAP_ZOOM:-14}
       MAIL_USER: ${MAIL_USER:-}
       MAIL_PASS: ${MAIL_PASS:-}
+      NOTIFICATION_EMAIL_ENABLED: ${NOTIFICATION_EMAIL_ENABLED:-true}
+      BREVO_API_BASE_URL: ${BREVO_API_BASE_URL:-https://api.brevo.com/v3}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL:-}
+      BREVO_SENDER_NAME: ${BREVO_SENDER_NAME:-CampConnect}
+      BREVO_SANDBOX_MODE: ${BREVO_SANDBOX_MODE:-false}
     restart: always
     volumes:
       - backend_uploads:/app/uploads
