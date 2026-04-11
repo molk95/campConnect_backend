@@ -46,11 +46,17 @@ public class Utilisateur implements UserDetails {
     String telephone;
 
 
+
+
     @Column(updatable = false)
     LocalDate dateCreation;
 
     @Enumerated(EnumType.STRING)
     Role role;
+
+    boolean twoFactorEnabled;
+    boolean twoFactorVerified;
+    String twoFactorSecret;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "profil_id")

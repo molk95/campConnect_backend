@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/user/**",
                                 "/auth/login",
+                                "/auth/login/verify-2fa",
                                 "/auth/register",
                                 "/auth/google",
                                 "/auth/forgot-password",
@@ -67,6 +68,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMINISTRATEUR")
+                        .requestMatchers("/auth/2fa/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
