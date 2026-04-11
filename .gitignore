@@ -36,6 +36,3 @@ build/
 .env
 .env.*
 !.env.example
-
-### Root temp files ###
-/tmp-*
