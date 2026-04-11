@@ -1,13 +1,18 @@
 package com.esprit.campconnect.Reservation.Entity;
 
+import com.esprit.campconnect.Event.Entity.Event;
 import com.esprit.campconnect.Reservation.Enum.PromotionDiscountType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -19,7 +24,9 @@ import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Set;
 
 @Entity
 @Table(name = "promotion_offer")
@@ -27,7 +34,7 @@ import java.util.Locale;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@ToString
+@ToString(exclude = "eligibleEvents")
 public class PromotionOffer {
 
     @Id
@@ -64,11 +71,22 @@ public class PromotionOffer {
     @Column(nullable = false)
     private Boolean active = true;
 
+    @Column(nullable = false)
+    private Boolean appliesToAllEvents = true;
+
     private LocalDateTime startsAt;
 
     private LocalDateTime endsAt;
 
     private Integer maxRedemptions;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "promotion_offer_event",
+            joinColumns = @JoinColumn(name = "promotion_offer_id"),
+            inverseJoinColumns = @JoinColumn(name = "event_id")
+    )
+    private Set<Event> eligibleEvents = new LinkedHashSet<>();
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime dateCreation = LocalDateTime.now();

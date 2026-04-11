@@ -1,7 +1,9 @@
 package com.esprit.campconnect.Reservation.Service;
 
 import com.esprit.campconnect.Event.Entity.Event;
+import com.esprit.campconnect.Event.Enum.EventStatus;
 import com.esprit.campconnect.Event.Repository.EventRepository;
+import com.esprit.campconnect.Reservation.DTO.PromotionEventSummaryDTO;
 import com.esprit.campconnect.Reservation.DTO.PromotionOfferRequestDTO;
 import com.esprit.campconnect.Reservation.DTO.PromotionOfferResponseDTO;
 import com.esprit.campconnect.Reservation.DTO.PromotionPreviewDTO;
@@ -11,6 +13,7 @@ import com.esprit.campconnect.Reservation.Repository.PromotionOfferRepository;
 import com.esprit.campconnect.Reservation.Repository.ReservationRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +23,15 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +48,7 @@ public class PromotionOfferService {
     public PromotionPreviewDTO previewReservationPricing(Long eventId, Integer numberOfParticipants, String promoCode) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found"));
+        validateEventAcceptsReservations(event);
 
         PromotionEvaluationResult evaluationResult =
                 evaluateReservationPricing(event, numberOfParticipants, promoCode, false);
@@ -49,39 +58,134 @@ public class PromotionOfferService {
 
     @Transactional(readOnly = true)
     public List<PromotionOfferResponseDTO> getPublicActivePromotions() {
-        return promotionOfferRepository.findByDiscoverableTrueAndActiveTrueOrderByAutoApplyDescDateCreationDesc().stream()
-                .filter(this::isCurrentlyAvailable)
+        return getPublicActivePromotions(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PromotionOfferResponseDTO> getPublicActivePromotions(Long eventId) {
+        Event event = eventId != null ? getEventOrThrow(eventId) : null;
+        List<PromotionOffer> promotions = promotionOfferRepository.findByDiscoverableTrueAndActiveTrueOrderByAutoApplyDescDateCreationDesc();
+        PromotionTargetContext targetContext = loadPromotionTargetContext(promotions);
+        java.util.Map<Long, Long> usageCountsByPromotionId = loadUsageCounts(promotions);
+
+        return promotions.stream()
+                .filter(offer -> isCurrentlyAvailable(
+                        offer,
+                        event,
+                        usageCountsByPromotionId.getOrDefault(offer.getId(), 0L),
+                        targetContext
+                ))
                 .sorted(Comparator
                         .comparing((PromotionOffer offer) -> Boolean.TRUE.equals(offer.getAutoApply()))
                         .reversed()
                         .thenComparing(PromotionOffer::getDateCreation, Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(this::mapToResponseDTO)
+                .map(offer -> mapToResponseDTO(
+                        offer,
+                        usageCountsByPromotionId.getOrDefault(offer.getId(), 0L),
+                        targetContext
+                ))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<PromotionOfferResponseDTO> getAllPromotions() {
-        return promotionOfferRepository.findAll().stream()
+        return getAllPromotions(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PromotionOfferResponseDTO> getAllPromotions(Long eventId) {
+        Event event = eventId != null ? getEventOrThrow(eventId) : null;
+        List<PromotionOffer> promotions = promotionOfferRepository.findAll();
+        PromotionTargetContext targetContext = loadPromotionTargetContext(promotions);
+        java.util.Map<Long, Long> usageCountsByPromotionId = loadUsageCounts(promotions);
+
+        return promotions.stream()
+                .filter(offer -> event == null || appliesToEvent(offer, event, targetContext))
                 .sorted(Comparator.comparing(PromotionOffer::getDateCreation, Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(this::mapToResponseDTO)
+                .map(offer -> mapToResponseDTO(
+                        offer,
+                        usageCountsByPromotionId.getOrDefault(offer.getId(), 0L),
+                        targetContext
+                ))
                 .toList();
     }
 
+    private void validateEventAcceptsReservations(Event event) {
+        if (event == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (event.getStatut() == EventStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cancelled events cannot accept reservations");
+        }
+
+        if (event.getDateFin() != null && !event.getDateFin().isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This event has already finished");
+        }
+
+        if (event.getDateDebut() != null && !event.getDateDebut().isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Reservations close once the event has started");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public PromotionOfferResponseDTO getPromotionById(Long promotionId) {
+        PromotionOffer promotionOffer = promotionOfferRepository.findById(promotionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Promotion not found"));
+
+        return mapToResponseDTO(
+                promotionOffer,
+                getUsageCount(promotionOffer),
+                loadPromotionTargetContext(List.of(promotionOffer))
+        );
+    }
+
     public PromotionOfferResponseDTO createPromotion(PromotionOfferRequestDTO requestDTO) {
-        validatePromotionRequest(requestDTO, null);
+        PromotionTargetSelection targetSelection = validatePromotionRequest(requestDTO, null);
 
         PromotionOffer promotionOffer = new PromotionOffer();
-        populatePromotionOffer(promotionOffer, requestDTO);
-        return mapToResponseDTO(promotionOfferRepository.save(promotionOffer));
+        populatePromotionOffer(promotionOffer, requestDTO, targetSelection);
+        PromotionOffer savedPromotion = promotionOfferRepository.save(promotionOffer);
+        syncPromotionTargets(savedPromotion.getId(), targetSelection.eventIds());
+        return mapToResponseDTO(
+                savedPromotion,
+                getUsageCount(savedPromotion),
+                loadPromotionTargetContext(List.of(savedPromotion))
+        );
     }
 
     public PromotionOfferResponseDTO updatePromotion(Long promotionId, PromotionOfferRequestDTO requestDTO) {
         PromotionOffer promotionOffer = promotionOfferRepository.findById(promotionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Promotion not found"));
 
-        validatePromotionRequest(requestDTO, promotionId);
-        populatePromotionOffer(promotionOffer, requestDTO);
-        return mapToResponseDTO(promotionOfferRepository.save(promotionOffer));
+        PromotionTargetSelection targetSelection = validatePromotionRequest(requestDTO, promotionId);
+        populatePromotionOffer(promotionOffer, requestDTO, targetSelection);
+        PromotionOffer savedPromotion = promotionOfferRepository.save(promotionOffer);
+        syncPromotionTargets(savedPromotion.getId(), targetSelection.eventIds());
+        return mapToResponseDTO(
+                savedPromotion,
+                getUsageCount(savedPromotion),
+                loadPromotionTargetContext(List.of(savedPromotion))
+        );
+    }
+
+    public void deletePromotion(Long promotionId) {
+        if (!promotionOfferRepository.existsById(promotionId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Promotion not found");
+        }
+
+        reservationRepository.clearPromotionOfferReferences(promotionId);
+
+        try {
+            promotionOfferRepository.deleteTargetedEventsByPromotionId(promotionId);
+        } catch (DataAccessException ignored) {
+            // Keep delete resilient for local databases that do not yet have the join table.
+        }
+        int deletedRows = promotionOfferRepository.deletePromotionByIdNative(promotionId);
+        if (deletedRows == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Promotion not found");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -119,7 +223,14 @@ public class PromotionOfferService {
                 invalidPromoCode = true;
                 validationMessage = "That promo code could not be found. Active group offers still apply automatically.";
             } else {
-                String eligibilityIssue = getEligibilityIssue(manualPromotion, basePriceTotal, numberOfParticipants, now);
+                String eligibilityIssue = getEligibilityIssue(
+                        manualPromotion,
+                        event,
+                        basePriceTotal,
+                        numberOfParticipants,
+                        now,
+                        null
+                );
                 if (eligibilityIssue != null) {
                     if (strictPromoCode) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, eligibilityIssue);
@@ -133,7 +244,7 @@ public class PromotionOfferService {
         }
 
         if (appliedPromotion == null) {
-            appliedPromotion = findBestAutoPromotion(basePriceTotal, numberOfParticipants, now);
+            appliedPromotion = findBestAutoPromotion(event, basePriceTotal, numberOfParticipants, now);
             if (appliedPromotion != null && !invalidPromoCode) {
                 validationMessage = buildAutoApplyMessage(appliedPromotion);
             }
@@ -159,12 +270,13 @@ public class PromotionOfferService {
     }
 
     private PromotionOffer findBestAutoPromotion(
+            Event event,
             BigDecimal basePriceTotal,
             Integer numberOfParticipants,
             LocalDateTime now
     ) {
         return promotionOfferRepository.findByAutoApplyTrueAndActiveTrueOrderByDateCreationDesc().stream()
-                .filter(offer -> getEligibilityIssue(offer, basePriceTotal, numberOfParticipants, now) == null)
+                .filter(offer -> getEligibilityIssue(offer, event, basePriceTotal, numberOfParticipants, now, null) == null)
                 .max(Comparator
                         .comparing((PromotionOffer offer) -> calculateDiscountAmount(basePriceTotal, offer))
                         .thenComparing(PromotionOffer::getDateCreation, Comparator.nullsLast(Comparator.naturalOrder())))
@@ -173,9 +285,31 @@ public class PromotionOfferService {
 
     private String getEligibilityIssue(
             PromotionOffer promotionOffer,
+            Event event,
             BigDecimal basePriceTotal,
             Integer numberOfParticipants,
-            LocalDateTime now
+            LocalDateTime now,
+            Long usageCountOverride
+    ) {
+        return getEligibilityIssue(
+                promotionOffer,
+                event,
+                basePriceTotal,
+                numberOfParticipants,
+                now,
+                usageCountOverride,
+                null
+        );
+    }
+
+    private String getEligibilityIssue(
+            PromotionOffer promotionOffer,
+            Event event,
+            BigDecimal basePriceTotal,
+            Integer numberOfParticipants,
+            LocalDateTime now,
+            Long usageCountOverride,
+            PromotionTargetContext targetContext
     ) {
         if (promotionOffer == null) {
             return "Promotion not found";
@@ -183,6 +317,10 @@ public class PromotionOfferService {
 
         if (!Boolean.TRUE.equals(promotionOffer.getActive())) {
             return "This promotion is not active right now.";
+        }
+
+        if (!appliesToEvent(promotionOffer, event, targetContext)) {
+            return "This promo code is not valid for this event.";
         }
 
         if (promotionOffer.getStartsAt() != null && now.isBefore(promotionOffer.getStartsAt())) {
@@ -207,7 +345,7 @@ public class PromotionOfferService {
                     + ".";
         }
 
-        if (hasReachedMaxRedemptions(promotionOffer)) {
+        if (hasReachedMaxRedemptions(promotionOffer, usageCountOverride)) {
             return "This promotion has already reached its campaign limit.";
         }
 
@@ -215,20 +353,76 @@ public class PromotionOfferService {
     }
 
     private boolean isCurrentlyAvailable(PromotionOffer promotionOffer) {
+        return isCurrentlyAvailable(promotionOffer, null);
+    }
+
+    private boolean isCurrentlyAvailable(PromotionOffer promotionOffer, Event event) {
+        return isCurrentlyAvailable(promotionOffer, event, null);
+    }
+
+    private boolean isCurrentlyAvailable(PromotionOffer promotionOffer, Event event, Long usageCountOverride) {
+        return isCurrentlyAvailable(promotionOffer, event, usageCountOverride, null);
+    }
+
+    private boolean isCurrentlyAvailable(
+            PromotionOffer promotionOffer,
+            Event event,
+            Long usageCountOverride,
+            PromotionTargetContext targetContext
+    ) {
         return getEligibilityIssue(
                 promotionOffer,
+                event,
                 safeMoney(promotionOffer.getMinimumSubtotal()),
                 Math.max(1, promotionOffer.getMinimumParticipants() != null ? promotionOffer.getMinimumParticipants() : 1),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                usageCountOverride,
+                targetContext
         ) == null;
     }
 
+    private boolean appliesToEvent(PromotionOffer promotionOffer, Event event) {
+        return appliesToEvent(promotionOffer, event, null);
+    }
+
+    private boolean appliesToEvent(
+            PromotionOffer promotionOffer,
+            Event event,
+            PromotionTargetContext targetContext
+    ) {
+        if (promotionOffer == null || Boolean.TRUE.equals(promotionOffer.getAppliesToAllEvents()) || event == null) {
+            return true;
+        }
+
+        Long promotionId = promotionOffer.getId();
+        Long eventId = event.getId();
+        if (promotionId == null || eventId == null) {
+            return false;
+        }
+
+        if (targetContext != null) {
+            List<Long> targetedEventIds = targetContext.eventIdsByPromotionId().getOrDefault(promotionId, List.of());
+            return targetedEventIds.contains(eventId);
+        }
+
+        try {
+            return promotionOfferRepository.countTargetedEvent(promotionId, eventId) > 0;
+        } catch (DataAccessException ignored) {
+            return false;
+        }
+    }
+
     private boolean hasReachedMaxRedemptions(PromotionOffer promotionOffer) {
+        return hasReachedMaxRedemptions(promotionOffer, null);
+    }
+
+    private boolean hasReachedMaxRedemptions(PromotionOffer promotionOffer, Long usageCountOverride) {
         if (promotionOffer == null || promotionOffer.getId() == null || promotionOffer.getMaxRedemptions() == null) {
             return false;
         }
 
-        return getUsageCount(promotionOffer) >= promotionOffer.getMaxRedemptions();
+        long usageCount = usageCountOverride != null ? usageCountOverride : getUsageCount(promotionOffer);
+        return usageCount >= promotionOffer.getMaxRedemptions();
     }
 
     private long getUsageCount(PromotionOffer promotionOffer) {
@@ -236,7 +430,15 @@ public class PromotionOfferService {
             return 0L;
         }
 
-        return reservationRepository.countByPromotionOfferId(promotionOffer.getId());
+        return getUsageCount(promotionOffer.getId());
+    }
+
+    private long getUsageCount(Long promotionId) {
+        if (promotionId == null) {
+            return 0L;
+        }
+
+        return reservationRepository.countByPromotionOfferId(promotionId);
     }
 
     private BigDecimal calculateDiscountAmount(BigDecimal basePriceTotal, PromotionOffer promotionOffer) {
@@ -278,10 +480,26 @@ public class PromotionOfferService {
     }
 
     private PromotionOfferResponseDTO mapToResponseDTO(PromotionOffer promotionOffer) {
-        long usageCount = getUsageCount(promotionOffer);
+        return mapToResponseDTO(promotionOffer, getUsageCount(promotionOffer));
+    }
+
+    private PromotionOfferResponseDTO mapToResponseDTO(PromotionOffer promotionOffer, long usageCount) {
+        return mapToResponseDTO(promotionOffer, usageCount, null);
+    }
+
+    private PromotionOfferResponseDTO mapToResponseDTO(
+            PromotionOffer promotionOffer,
+            long usageCount,
+            PromotionTargetContext targetContext
+    ) {
         Long remainingRedemptions = promotionOffer.getMaxRedemptions() == null
                 ? null
                 : Math.max(0L, promotionOffer.getMaxRedemptions() - usageCount);
+        List<PromotionEventSummaryDTO> eligibleEvents = mapToEligibleEvents(promotionOffer, targetContext);
+        List<Long> eligibleEventIds = eligibleEvents.stream()
+                .map(PromotionEventSummaryDTO::getId)
+                .filter(Objects::nonNull)
+                .toList();
 
         return new PromotionOfferResponseDTO(
                 promotionOffer.getId(),
@@ -295,7 +513,10 @@ public class PromotionOfferService {
                 promotionOffer.getAutoApply(),
                 promotionOffer.getDiscoverable(),
                 promotionOffer.getActive(),
-                isCurrentlyAvailable(promotionOffer),
+                promotionOffer.getAppliesToAllEvents(),
+                eligibleEventIds,
+                eligibleEvents,
+                isCurrentlyAvailable(promotionOffer, null, usageCount, targetContext),
                 promotionOffer.getMaxRedemptions(),
                 usageCount,
                 remainingRedemptions,
@@ -306,7 +527,32 @@ public class PromotionOfferService {
         );
     }
 
-    private void populatePromotionOffer(PromotionOffer promotionOffer, PromotionOfferRequestDTO requestDTO) {
+    private List<PromotionEventSummaryDTO> mapToEligibleEvents(
+            PromotionOffer promotionOffer,
+            PromotionTargetContext targetContext
+    ) {
+        if (promotionOffer == null || Boolean.TRUE.equals(promotionOffer.getAppliesToAllEvents())) {
+            return List.of();
+        }
+
+        if (promotionOffer.getId() == null) {
+            return List.of();
+        }
+
+        if (targetContext != null) {
+            return targetContext.eventSummariesByPromotionId()
+                    .getOrDefault(promotionOffer.getId(), List.of());
+        }
+
+        return loadPromotionTargetContext(List.of(promotionOffer)).eventSummariesByPromotionId()
+                .getOrDefault(promotionOffer.getId(), List.of());
+    }
+
+    private void populatePromotionOffer(
+            PromotionOffer promotionOffer,
+            PromotionOfferRequestDTO requestDTO,
+            PromotionTargetSelection targetSelection
+    ) {
         promotionOffer.setName(requestDTO.getName().trim());
         promotionOffer.setCode(normalizeCode(requestDTO.getCode()));
         promotionOffer.setDescription(StringUtils.hasText(requestDTO.getDescription()) ? requestDTO.getDescription().trim() : null);
@@ -317,12 +563,13 @@ public class PromotionOfferService {
         promotionOffer.setAutoApply(Boolean.TRUE.equals(requestDTO.getAutoApply()));
         promotionOffer.setDiscoverable(requestDTO.getDiscoverable() == null || Boolean.TRUE.equals(requestDTO.getDiscoverable()));
         promotionOffer.setActive(requestDTO.getActive() == null || Boolean.TRUE.equals(requestDTO.getActive()));
+        promotionOffer.setAppliesToAllEvents(targetSelection.appliesToAllEvents());
         promotionOffer.setStartsAt(requestDTO.getStartsAt());
         promotionOffer.setEndsAt(requestDTO.getEndsAt());
         promotionOffer.setMaxRedemptions(requestDTO.getMaxRedemptions());
     }
 
-    private void validatePromotionRequest(PromotionOfferRequestDTO requestDTO, Long currentPromotionId) {
+    private PromotionTargetSelection validatePromotionRequest(PromotionOfferRequestDTO requestDTO, Long currentPromotionId) {
         if (requestDTO.getStartsAt() != null
                 && requestDTO.getEndsAt() != null
                 && requestDTO.getEndsAt().isBefore(requestDTO.getStartsAt())) {
@@ -346,6 +593,169 @@ public class PromotionOfferService {
                 && requestDTO.getDiscountValue().compareTo(HUNDRED) > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Percentage discounts cannot exceed 100%");
         }
+
+        Set<Long> eventIds = normalizeEventIds(requestDTO.getEventIds());
+        boolean appliesToAllEvents = requestDTO.getAppliesToAllEvents() == null
+                ? eventIds.isEmpty()
+                : Boolean.TRUE.equals(requestDTO.getAppliesToAllEvents());
+
+        if (appliesToAllEvents && !eventIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Choose either all events or a specific list of events for this promotion"
+            );
+        }
+
+        if (!appliesToAllEvents && eventIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "At least one event must be selected when the promotion is not valid for all events"
+            );
+        }
+
+        if (!appliesToAllEvents) {
+            List<Event> resolvedEvents = eventRepository.findAllById(eventIds);
+            if (resolvedEvents.size() != eventIds.size()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "One or more selected events were not found");
+            }
+        }
+
+        return new PromotionTargetSelection(appliesToAllEvents, eventIds);
+    }
+
+    private java.util.Map<Long, Long> loadUsageCounts(List<PromotionOffer> promotions) {
+        if (promotions == null || promotions.isEmpty()) {
+            return java.util.Map.of();
+        }
+
+        List<Long> promotionIds = promotions.stream()
+                .map(PromotionOffer::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (promotionIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+
+        java.util.Map<Long, Long> usageCountsByPromotionId = new java.util.HashMap<>();
+        for (ReservationRepository.PromotionUsageCountView usageCount : reservationRepository.countPromotionUsages(promotionIds)) {
+            if (usageCount.getPromotionOfferId() == null) {
+                continue;
+            }
+            usageCountsByPromotionId.put(
+                    usageCount.getPromotionOfferId(),
+                    usageCount.getUsageCount() != null ? usageCount.getUsageCount() : 0L
+            );
+        }
+        return usageCountsByPromotionId;
+    }
+
+    private PromotionTargetContext loadPromotionTargetContext(List<PromotionOffer> promotions) {
+        if (promotions == null || promotions.isEmpty()) {
+            return PromotionTargetContext.empty();
+        }
+
+        List<Long> promotionIds = promotions.stream()
+                .map(PromotionOffer::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (promotionIds.isEmpty()) {
+            return PromotionTargetContext.empty();
+        }
+
+        Map<Long, List<PromotionEventSummaryDTO>> eventSummariesByPromotionId = new HashMap<>();
+        Map<Long, List<Long>> eventIdsByPromotionId = new HashMap<>();
+
+        for (Long promotionId : promotionIds) {
+            eventSummariesByPromotionId.put(promotionId, new ArrayList<>());
+            eventIdsByPromotionId.put(promotionId, new ArrayList<>());
+        }
+
+        try {
+            for (PromotionOfferRepository.PromotionTargetEventSummaryView row
+                    : promotionOfferRepository.findTargetedEventSummariesByPromotionIds(promotionIds)) {
+                if (row.getPromotionOfferId() == null || row.getEventId() == null) {
+                    continue;
+                }
+
+                eventSummariesByPromotionId.computeIfAbsent(row.getPromotionOfferId(), ignored -> new ArrayList<>())
+                        .add(new PromotionEventSummaryDTO(
+                                row.getEventId(),
+                                row.getTitre(),
+                                row.getLieu(),
+                                row.getDateDebut(),
+                                row.getDateFin()
+                        ));
+                eventIdsByPromotionId.computeIfAbsent(row.getPromotionOfferId(), ignored -> new ArrayList<>())
+                        .add(row.getEventId());
+            }
+        } catch (DataAccessException ignored) {
+            return PromotionTargetContext.empty();
+        }
+
+        Map<Long, List<PromotionEventSummaryDTO>> normalizedEventSummaries = new HashMap<>();
+        eventSummariesByPromotionId.forEach((promotionId, summaries) -> normalizedEventSummaries.put(
+                promotionId,
+                List.copyOf(summaries)
+        ));
+
+        Map<Long, List<Long>> normalizedEventIds = new HashMap<>();
+        eventIdsByPromotionId.forEach((promotionId, eventIds) -> normalizedEventIds.put(
+                promotionId,
+                List.copyOf(eventIds)
+        ));
+
+        return new PromotionTargetContext(
+                Map.copyOf(normalizedEventIds),
+                Map.copyOf(normalizedEventSummaries)
+        );
+    }
+
+    private void syncPromotionTargets(Long promotionId, Set<Long> eventIds) {
+        if (promotionId == null) {
+            return;
+        }
+
+        try {
+            promotionOfferRepository.deleteTargetedEventsByPromotionId(promotionId);
+        } catch (DataAccessException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Promotion targets could not be updated. Please verify the promotion target table exists.",
+                    ex
+            );
+        }
+        if (eventIds == null || eventIds.isEmpty()) {
+            return;
+        }
+
+        for (Long eventId : eventIds) {
+            if (eventId == null) {
+                continue;
+            }
+            try {
+                promotionOfferRepository.insertTargetedEvent(promotionId, eventId);
+            } catch (DataAccessException ex) {
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Promotion targets could not be updated. Please verify the promotion target table exists.",
+                        ex
+                );
+            }
+        }
+    }
+
+    private Set<Long> normalizeEventIds(List<Long> rawEventIds) {
+        if (rawEventIds == null || rawEventIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return rawEventIds.stream()
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     private String buildDiscountLabel(PromotionOffer promotionOffer) {
@@ -387,6 +797,11 @@ public class PromotionOfferService {
         return StringUtils.hasText(rawCode) ? rawCode.trim().toUpperCase(Locale.ROOT) : null;
     }
 
+    private Event getEventOrThrow(Long eventId) {
+        return eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found"));
+    }
+
     @Getter
     @RequiredArgsConstructor
     public static class PromotionEvaluationResult {
@@ -400,5 +815,17 @@ public class PromotionOfferService {
         private final boolean autoApplied;
         private final boolean invalidPromoCode;
         private final String validationMessage;
+    }
+
+    private record PromotionTargetSelection(boolean appliesToAllEvents, Set<Long> eventIds) {
+    }
+
+    private record PromotionTargetContext(
+            Map<Long, List<Long>> eventIdsByPromotionId,
+            Map<Long, List<PromotionEventSummaryDTO>> eventSummariesByPromotionId
+    ) {
+        private static PromotionTargetContext empty() {
+            return new PromotionTargetContext(Map.of(), Map.of());
+        }
     }
 }

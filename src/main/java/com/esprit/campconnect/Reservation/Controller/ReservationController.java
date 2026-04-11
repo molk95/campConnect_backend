@@ -1,12 +1,14 @@
 package com.esprit.campconnect.Reservation.Controller;
 
 import com.esprit.campconnect.Reservation.DTO.PaymentProcessDTO;
+import com.esprit.campconnect.Reservation.DTO.ReservationFeedbackRequestDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationRequestDTO;
 import com.esprit.campconnect.Reservation.DTO.ReservationResponseDTO;
 import com.esprit.campconnect.Reservation.DTO.StripeCheckoutSessionResponseDTO;
 import com.esprit.campconnect.Reservation.DTO.StripeSessionSyncRequestDTO;
 import com.esprit.campconnect.Reservation.DTO.UserReservationStatsDTO;
 import com.esprit.campconnect.Reservation.Service.IReservationService;
+import com.esprit.campconnect.Reservation.Service.ReservationExportService;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +39,7 @@ import java.util.List;
 public class ReservationController {
 
     private final IReservationService reservationService;
+    private final ReservationExportService reservationExportService;
     private final UtilisateurRepository utilisateurRepository;
 
     // ============== CRUD ENDPOINTS ==============
@@ -175,15 +178,57 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.getReservationById(id));
     }
 
+    @PutMapping("/markAttended/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @Operation(summary = "Mark as attended", description = "Mark reservation as attended after check-in once the event has started or completed")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Marked as attended"),
+            @ApiResponse(responseCode = "400", description = "Cannot mark as attended")
+    })
+    public ResponseEntity<ReservationResponseDTO> markAsAttended(@PathVariable Long id, Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        reservationService.markAsAttended(
+                id,
+                effectiveAuthentication != null ? effectiveAuthentication.getName() : null,
+                isAdministrator(effectiveAuthentication)
+        );
+        return ResponseEntity.ok(reservationService.getReservationById(id));
+    }
+
+    @PutMapping("/events/{eventId}/markAttended")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @Operation(summary = "Bulk mark eligible reservations as attended", description = "Mark all confirmed or paid reservations for an event as attended once the event has started or completed")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Eligible reservations marked as attended"),
+            @ApiResponse(responseCode = "400", description = "Attendance cannot be recorded yet for this event")
+    })
+    public ResponseEntity<List<ReservationResponseDTO>> markEligibleReservationsAsAttended(
+            @PathVariable Long eventId,
+            Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        return ResponseEntity.ok(
+                reservationService.markEligibleReservationsAsAttended(
+                        eventId,
+                        effectiveAuthentication != null ? effectiveAuthentication.getName() : null,
+                        isAdministrator(effectiveAuthentication)
+                )
+        );
+    }
+
     @PutMapping("/markNoShow/{id}")
-    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
-    @Operation(summary = "Mark as no-show", description = "Mark reservation as no-show")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATEUR', 'GERANT_RESTAU', 'GUIDE')")
+    @Operation(summary = "Mark as no-show", description = "Mark reservation as no-show once the event has started or completed")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Marked as no-show"),
             @ApiResponse(responseCode = "400", description = "Cannot mark as no-show")
     })
-    public ResponseEntity<ReservationResponseDTO> markAsNoShow(@PathVariable Long id) {
-        reservationService.markAsNoShow(id);
+    public ResponseEntity<ReservationResponseDTO> markAsNoShow(@PathVariable Long id, Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        reservationService.markAsNoShow(
+                id,
+                effectiveAuthentication != null ? effectiveAuthentication.getName() : null,
+                isAdministrator(effectiveAuthentication)
+        );
         return ResponseEntity.ok(reservationService.getReservationById(id));
     }
 
@@ -281,6 +326,24 @@ public class ReservationController {
                 .contentType(MediaType.parseMediaType("text/calendar; charset=UTF-8"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=reservation-" + id + "-calendar.ics")
                 .body(calendarInvite);
+    }
+
+    @PostMapping("/{id}/feedback")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ADMINISTRATEUR')")
+    @Operation(summary = "Submit reservation feedback", description = "Submit or update a post-event rating and comment for an attended reservation")
+    public ResponseEntity<ReservationResponseDTO> submitFeedback(
+            @PathVariable Long id,
+            @Valid @RequestBody ReservationFeedbackRequestDTO requestDTO,
+            Authentication authentication) {
+        Authentication effectiveAuthentication = resolveAuthentication(authentication);
+        return ResponseEntity.ok(
+                reservationService.submitFeedback(
+                        id,
+                        requestDTO,
+                        effectiveAuthentication != null ? effectiveAuthentication.getName() : null,
+                        isAdministrator(effectiveAuthentication)
+                )
+        );
     }
 
     @GetMapping("/me/stats")
@@ -415,6 +478,48 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.countConfirmedReservationsForEvent(eventId));
     }
 
+    @GetMapping("/exports/guest-list/{eventId}")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    @Operation(summary = "Export guest list", description = "Download the guest list for an event in CSV or PDF format")
+    public ResponseEntity<byte[]> exportGuestList(
+            @PathVariable Long eventId,
+            @RequestParam(defaultValue = "csv") String format) {
+        ReservationExportService.ExportArtifact exportArtifact =
+                reservationExportService.generateGuestList(eventId, reservationExportService.parseFormat(format));
+        return buildExportResponse(exportArtifact);
+    }
+
+    @GetMapping("/exports/attendance-sheet/{eventId}")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    @Operation(summary = "Export attendance sheet", description = "Download the attendance sheet for an event in CSV or PDF format")
+    public ResponseEntity<byte[]> exportAttendanceSheet(
+            @PathVariable Long eventId,
+            @RequestParam(defaultValue = "pdf") String format) {
+        ReservationExportService.ExportArtifact exportArtifact =
+                reservationExportService.generateAttendanceSheet(eventId, reservationExportService.parseFormat(format));
+        return buildExportResponse(exportArtifact);
+    }
+
+    @GetMapping("/exports/reservation-report")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    @Operation(summary = "Export reservation report", description = "Download the reservation report in CSV or PDF format")
+    public ResponseEntity<byte[]> exportReservationReport(
+            @RequestParam(defaultValue = "csv") String format) {
+        ReservationExportService.ExportArtifact exportArtifact =
+                reservationExportService.generateReservationReport(reservationExportService.parseFormat(format));
+        return buildExportResponse(exportArtifact);
+    }
+
+    @GetMapping("/exports/revenue-report")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    @Operation(summary = "Export revenue report", description = "Download the revenue report in CSV or PDF format")
+    public ResponseEntity<byte[]> exportRevenueReport(
+            @RequestParam(defaultValue = "pdf") String format) {
+        ReservationExportService.ExportArtifact exportArtifact =
+                reservationExportService.generateRevenueReport(reservationExportService.parseFormat(format));
+        return buildExportResponse(exportArtifact);
+    }
+
     private boolean isAdministrator(Authentication authentication) {
         if (authentication == null) {
             return false;
@@ -432,5 +537,12 @@ public class ReservationController {
         }
 
         return SecurityContextHolder.getContext().getAuthentication();
+    }
+
+    private ResponseEntity<byte[]> buildExportResponse(ReservationExportService.ExportArtifact exportArtifact) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(exportArtifact.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + exportArtifact.fileName())
+                .body(exportArtifact.content());
     }
 }

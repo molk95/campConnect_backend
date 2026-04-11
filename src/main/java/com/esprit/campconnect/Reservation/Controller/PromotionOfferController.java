@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,8 +36,9 @@ public class PromotionOfferController {
     @GetMapping("/public/active")
     @Operation(summary = "Get public promotions", description = "List active and discoverable promo codes or auto-applied group offers")
     @ApiResponse(responseCode = "200", description = "List of active promotions")
-    public ResponseEntity<List<PromotionOfferResponseDTO>> getPublicPromotions() {
-        return ResponseEntity.ok(promotionOfferService.getPublicActivePromotions());
+    public ResponseEntity<List<PromotionOfferResponseDTO>> getPublicPromotions(
+            @RequestParam(required = false) Long eventId) {
+        return ResponseEntity.ok(promotionOfferService.getPublicActivePromotions(eventId));
     }
 
     @GetMapping("/public/preview")
@@ -55,8 +57,17 @@ public class PromotionOfferController {
     @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
     @Operation(summary = "List all promotions", description = "Retrieve all promotion offers for administration")
     @ApiResponse(responseCode = "200", description = "List of promotions")
-    public ResponseEntity<List<PromotionOfferResponseDTO>> getAllPromotions() {
-        return ResponseEntity.ok(promotionOfferService.getAllPromotions());
+    public ResponseEntity<List<PromotionOfferResponseDTO>> getAllPromotions(
+            @RequestParam(required = false) Long eventId) {
+        return ResponseEntity.ok(promotionOfferService.getAllPromotions(eventId));
+    }
+
+    @GetMapping("/admin/{promotionId}")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    @Operation(summary = "Get promotion details", description = "Retrieve a single promotion with its event targeting information")
+    @ApiResponse(responseCode = "200", description = "Promotion details")
+    public ResponseEntity<PromotionOfferResponseDTO> getPromotionById(@PathVariable Long promotionId) {
+        return ResponseEntity.ok(promotionOfferService.getPromotionById(promotionId));
     }
 
     @PostMapping("/admin")
@@ -76,5 +87,14 @@ public class PromotionOfferController {
             @PathVariable Long promotionId,
             @Valid @RequestBody PromotionOfferRequestDTO requestDTO) {
         return ResponseEntity.ok(promotionOfferService.updatePromotion(promotionId, requestDTO));
+    }
+
+    @DeleteMapping("/admin/{promotionId}")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    @Operation(summary = "Delete promotion", description = "Remove a promo code or discount campaign")
+    @ApiResponse(responseCode = "204", description = "Promotion deleted")
+    public ResponseEntity<Void> deletePromotion(@PathVariable Long promotionId) {
+        promotionOfferService.deletePromotion(promotionId);
+        return ResponseEntity.noContent().build();
     }
 }

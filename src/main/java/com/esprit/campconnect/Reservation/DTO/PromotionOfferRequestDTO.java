@@ -13,6 +13,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -48,6 +49,10 @@ public class PromotionOfferRequestDTO {
     private Boolean discoverable;
 
     private Boolean active;
+
+    private Boolean appliesToAllEvents;
+
+    private List<Long> eventIds;
 
     private LocalDateTime startsAt;
 

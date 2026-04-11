@@ -130,6 +130,16 @@ public class SiteCampingAvisServiceImp implements ISiteCampingAvisService {
         SiteCampingAvis saved = siteCampingAvisRepository.save(existing);
         return mapToResponse(saved);
     }
+    private boolean canDeleteReview(Utilisateur currentUser, SiteCampingAvis avis) {
+        boolean isOwner = avis.getUtilisateur() != null
+                && avis.getUtilisateur().getId().equals(currentUser.getId());
+
+        boolean isAdmin = currentUser.getRole() != null
+                && currentUser.getRole().name().equals("ADMINISTRATEUR");
+
+        return isOwner || isAdmin;
+    }
+
     @Override
     public void deleteSiteCampingAvis(Long idAvis) {
         SiteCampingAvis existing = siteCampingAvisRepository.findById(idAvis)
@@ -137,7 +147,7 @@ public class SiteCampingAvisServiceImp implements ISiteCampingAvisService {
 
         Utilisateur currentUser = getCurrentUser();
 
-        if (existing.getUtilisateur() == null || !existing.getUtilisateur().getId().equals(currentUser.getId())) {
+        if (!canDeleteReview(currentUser, existing)) {
             throw new RuntimeException("You are not allowed to delete this review");
         }
 

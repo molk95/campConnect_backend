@@ -25,6 +25,8 @@ public class ReservationResponseDTO {
     private LocalDateTime eventDateFin;
     private String eventLieu;
     private ReservationStatus statut;
+    private String statusDescription;
+    private String nextStepMessage;
     private Integer nombreParticipants;
     private BigDecimal basePriceTotal;
     private BigDecimal discountAmount;
@@ -49,10 +51,18 @@ public class ReservationResponseDTO {
     private LocalDateTime cancelledAt;
     private LocalDateTime refundedAt;
     private String cancellationReason;
+    private LocalDateTime waitlistOfferedAt;
+    private LocalDateTime waitlistOfferExpiresAt;
+    private Boolean waitlistOfferActive;
     private Boolean receiptAvailable;
     private ReservationCancellationPolicyDTO cancellationPolicy;
     private Boolean calendarExportAvailable;
     private String googleCalendarUrl;
     private String calendarIcsDownloadUrl;
     private String calendarIcsFileName;
+    private Boolean attendanceRecordable;
+    private Integer feedbackRating;
+    private String feedbackComment;
+    private LocalDateTime feedbackSubmittedAt;
+    private Boolean feedbackEligible;
 }

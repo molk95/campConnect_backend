@@ -116,8 +116,9 @@ public class Event {
     public long getParticipantsCount() {
         if (reservations == null) return 0;
         return reservations.stream()
-                .filter(r -> r.getStatut() == com.esprit.campconnect.Reservation.Enum.ReservationStatus.CONFIRMED 
-                          || r.getStatut() == com.esprit.campconnect.Reservation.Enum.ReservationStatus.PAID)
+                .filter(r -> r.getStatut() == com.esprit.campconnect.Reservation.Enum.ReservationStatus.CONFIRMED
+                          || r.getStatut() == com.esprit.campconnect.Reservation.Enum.ReservationStatus.PAID
+                          || r.getStatut() == com.esprit.campconnect.Reservation.Enum.ReservationStatus.ATTENDED)
                 .mapToLong(r -> r.getNombreParticipants().longValue())
                 .sum();
     }

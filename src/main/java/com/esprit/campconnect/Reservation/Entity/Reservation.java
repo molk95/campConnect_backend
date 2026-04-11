@@ -1,12 +1,13 @@
 package com.esprit.campconnect.Reservation.Entity;
 
-import lombok.*;
 import com.esprit.campconnect.Event.Entity.Event;
 import com.esprit.campconnect.Reservation.Enum.PaymentStatus;
 import com.esprit.campconnect.Reservation.Enum.ReservationStatus;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -41,7 +42,7 @@ public class Reservation {
     private ReservationStatus statut;
 
     @Column(nullable = false)
-    private Integer nombreParticipants; // Number of participants in this reservation (1 or more)
+    private Integer nombreParticipants;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal basePriceTotal = BigDecimal.ZERO;
@@ -58,10 +59,10 @@ public class Reservation {
     private Boolean discountAutoApplied = false;
 
     @Column(nullable = false)
-    private BigDecimal prixTotal; // Total price for all participants
+    private BigDecimal prixTotal;
 
     @Column(nullable = false)
-    private Boolean estEnAttente = false; // Is this reservation on waitlist?
+    private Boolean estEnAttente = false;
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -76,10 +77,9 @@ public class Reservation {
     @Column(nullable = false)
     private LocalDateTime dateModification = LocalDateTime.now();
 
-    // Payment tracking
     private LocalDateTime datePaiement;
 
-    private String transactionId; // External payment gateway transaction ID
+    private String transactionId;
 
     private String stripeInvoiceId;
 
@@ -103,13 +103,31 @@ public class Reservation {
     @Column(columnDefinition = "TEXT")
     private String cancellationReason;
 
-    // Pre-update hook to update the modification date
+    private LocalDateTime waitlistOfferedAt;
+
+    private LocalDateTime waitlistOfferExpiresAt;
+
+    private LocalDateTime reminderSevenDaysSentAt;
+
+    private LocalDateTime reminderOneDaySentAt;
+
+    private LocalDateTime reminderTwoHoursSentAt;
+
+    private LocalDateTime feedbackRequestedAt;
+
+    @Column
+    private Integer feedbackRating;
+
+    @Column(columnDefinition = "TEXT")
+    private String feedbackComment;
+
+    private LocalDateTime feedbackSubmittedAt;
+
     @PreUpdate
     public void preUpdate() {
         dateModification = LocalDateTime.now();
     }
 
-    // Helper method to calculate refund amount
     public BigDecimal calculateRefund() {
         if (statutPaiement == PaymentStatus.REFUNDED) {
             return BigDecimal.ZERO;
