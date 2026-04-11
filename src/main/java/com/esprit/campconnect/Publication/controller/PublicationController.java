@@ -1,41 +1,86 @@
 package com.esprit.campconnect.Publication.controller;
-import com.esprit.campconnect.Publication.entity.Publication;
+
 import com.esprit.campconnect.Publication.service.PublicationService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.esprit.campconnect.commentaire.entity.Commentaire;
+import com.esprit.campconnect.forum.entity.Forum;
+import com.esprit.campconnect.forum.repository.ForumRepository;
+import com.esprit.campconnect.Publication.entity.Publication;
+import com.esprit.campconnect.Publication.repository.PublicationRepository;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/publications")
-@CrossOrigin(origins = {"http://localhost:4200"})
+@Transactional(readOnly = true) // 🔥 IMPORTANT
+@CrossOrigin(origins = "http://localhost:4200")
 public class PublicationController {
 
-    @Autowired
-    private PublicationService publicationService;
+    private final PublicationRepository publicationRepository;
+    private final ForumRepository forumRepository;
+    private final PublicationService publicationService; // ✅ AJOUT
+
+    public PublicationController(PublicationRepository publicationRepository,
+                                 ForumRepository forumRepository,
+                                 PublicationService publicationService) {
+        this.publicationRepository = publicationRepository;
+        this.forumRepository = forumRepository;
+        this.publicationService = publicationService; // ✅ AJOUT
+    }
+
+    @GetMapping("/forum/{forumId}")
+    public List<Publication> getByForum(@PathVariable Long forumId) {
+        return publicationService.getByForumId(forumId);
+    }
+    @PostMapping
+    public Publication create(@RequestBody Publication publication) {
+
+        System.out.println("Publication reçue = " + publication.getTitre());
+
+        if (publication.getForum() == null || publication.getForum().getId() == null) {
+            throw new RuntimeException("Forum ID manquant !");
+        }
+
+        Forum forum = forumRepository.findById(publication.getForum().getId())
+                .orElseThrow(() -> new RuntimeException("Forum introuvable"));
+
+        publication.setForum(forum);
+
+        return publicationRepository.save(publication);
+    }
+    @PutMapping("/{id}/like")
+    public Publication likePublication(@PathVariable Long id) {
+        Publication publication = publicationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Publication introuvable"));
+
+        publication.setLikesCount(publication.getLikesCount() + 1);
+        return publicationRepository.save(publication);
+    }
+
+    @PutMapping("/{id}/view")
+    public Publication incrementView(@PathVariable Long id) {
+        Publication publication = publicationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Publication introuvable"));
+
+        publication.setVuesCount(publication.getVuesCount() + 1);
+        return publicationRepository.save(publication);
+    }
+    @GetMapping("/publication/{id}")
+    public List<Commentaire> getByPublication(@PathVariable Long id) {
+        return commentaireRepository.findByPublication_Id(id);
+    }
 
     @PostMapping
-    public Publication createPublication(@RequestBody Publication publication) {
-        return publicationService.createPublication(publication);
-    }
+    public Commentaire create(@RequestBody Commentaire commentaire) {
+        Publication pub = publicationRepository.findById(commentaire.getPublication().getId())
+                .orElseThrow(() -> new RuntimeException("Publication introuvable"));
 
+        commentaire.setPublication(pub);
+        return commentaireRepository.save(commentaire);
+    }
     @GetMapping
-    public List<Publication> agetAllPublications() {
+    public List<Publication> getAll() {
         return publicationService.getAllPublications();
-    }
-
-    @GetMapping("/{id}")
-    public Publication getPublicationById(@PathVariable Long id) {
-        return publicationService.getPublicationById(id);
-    }
-
-    @PutMapping("/{id}")
-    public Publication updatePublication(@PathVariable Long id, @RequestBody Publication publication) {
-        return publicationService.updatePublication(id, publication);
-    }
-
-    @DeleteMapping("/{id}")
-    public void deletePublication(@PathVariable Long id) {
-        publicationService.deletePublication(id);
     }
 }

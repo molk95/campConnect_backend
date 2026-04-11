@@ -59,10 +59,12 @@ public class SecurityConfig {
                                 "/paniers/**",
                                 "/commandes/**",
                                 "/details-commandes/**",
-                                "/uploads/**"
-                        ).permitAll()
+                                 "/commentaires",
+                                "/uploads/**",
+                                "/forums/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/publications/forum/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMINISTRATEUR")
                         .anyRequest().authenticated()
                 )
