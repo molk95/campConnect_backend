@@ -57,16 +57,25 @@ public class SecurityConfig {
                                 "/inscriptionsite/**",
                                 "/reclamations/**",
                         "/reclamation-notifications/**",
-                                "/repas/**",
                                 "/commandes-repas/**",
                                 "/produits/**",
                                 "/detail-panier/**",
                                 "/paniers/**",
-                                "/commandes/**",
                                 "/details-commandes/**",
                                  "/commentaires",
                                 "/uploads/**",
                                 "/forums/**").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/repas/**")
+                                //.hasAnyRole("CLIENT", "GERANT_RESTAU")
+                                .hasAnyAuthority("CLIENT", "GERANT_RESTAU")
+//                        .requestMatchers(HttpMethod.GET, "/repas/**").permitAll()
+
+                        .requestMatchers(HttpMethod.POST, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.PUT, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.DELETE, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.POST, "/commandes/**").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.GET, "/commandes/**").authenticated()
+
                         .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/publications/forum/**").permitAll()

@@ -3,11 +3,19 @@ import com.esprit.campconnect.Restauration.Enum.StatutCommandeRepas;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 @Entity
 public class CommandeRepas {
 
@@ -21,7 +29,8 @@ public class CommandeRepas {
     @Enumerated(EnumType.STRING)
     private StatutCommandeRepas statut;
 
-    @ManyToOne
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "utilisateur_id")
     private Utilisateur utilisateur;
 
@@ -29,24 +38,15 @@ public class CommandeRepas {
     @JsonManagedReference
     private List<LigneCommandeRepas> lignes = new ArrayList<>();
 
-    public CommandeRepas() {
+    // 🔥 Méthode utilitaire (TRÈS IMPORTANT)
+    public void addLigne(LigneCommandeRepas ligne) {
+        lignes.add(ligne);
+        ligne.setCommandeRepas(this);
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void removeLigne(LigneCommandeRepas ligne) {
+        lignes.remove(ligne);
+        ligne.setCommandeRepas(null);
+    }
 
-    public LocalDate getDateCommande() { return dateCommande; }
-    public void setDateCommande(LocalDate dateCommande) { this.dateCommande = dateCommande; }
-
-    public double getMontantTotal() { return montantTotal; }
-    public void setMontantTotal(double montantTotal) { this.montantTotal = montantTotal; }
-
-    public StatutCommandeRepas getStatut() { return statut; }
-    public void setStatut(StatutCommandeRepas statut) { this.statut = statut; }
-
-    public Utilisateur getUtilisateur() { return utilisateur; }
-    public void setUtilisateur(Utilisateur utilisateur) { this.utilisateur = utilisateur; }
-
-    public List<LigneCommandeRepas> getLignes() { return lignes; }
-    public void setLignes(List<LigneCommandeRepas> lignes) { this.lignes = lignes; }
 }

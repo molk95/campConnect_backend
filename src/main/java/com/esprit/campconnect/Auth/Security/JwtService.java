@@ -73,7 +73,7 @@ public class JwtService {
         claims.put("role", role);
         claims.put("tokenType", "TEMP_2FA");
 
-        // Add userId if userDetails is a Utilisateur
+        // ✅ Ajouter userId AVANT le return
         if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur) {
             Long userId = ((com.esprit.campconnect.User.Entity.Utilisateur) userDetails).getId();
             if (userId != null) {
