@@ -73,7 +73,6 @@ public class JwtService {
         claims.put("role", role);
         claims.put("tokenType", "TEMP_2FA");
 
-        return generateToken(claims, userDetails, TEMP_2FA_EXPIRATION);
         // Add userId if userDetails is a Utilisateur
         if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur) {
             Long userId = ((com.esprit.campconnect.User.Entity.Utilisateur) userDetails).getId();
@@ -82,7 +81,7 @@ public class JwtService {
             }
         }
 
-        return generateToken(claims, userDetails);
+        return generateToken(claims, userDetails, TEMP_2FA_EXPIRATION);
     }
 
     public void addUserIdToClaims(Map<String, Object> claims, Long userId) {

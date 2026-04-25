@@ -2,6 +2,7 @@ package com.esprit.campconnect.Publication.controller;
 
 import com.esprit.campconnect.Publication.service.PublicationService;
 import com.esprit.campconnect.commentaire.entity.Commentaire;
+import com.esprit.campconnect.commentaire.repository.CommentaireRepository;
 import com.esprit.campconnect.forum.entity.Forum;
 import com.esprit.campconnect.forum.repository.ForumRepository;
 import com.esprit.campconnect.Publication.entity.Publication;
@@ -20,13 +21,15 @@ public class PublicationController {
     private final PublicationRepository publicationRepository;
     private final ForumRepository forumRepository;
     private final PublicationService publicationService; // ✅ AJOUT
+    private final CommentaireRepository commentaireRepository;
 
     public PublicationController(PublicationRepository publicationRepository,
                                  ForumRepository forumRepository,
-                                 PublicationService publicationService) {
+                                 PublicationService publicationService, CommentaireRepository commentaireRepository) {
         this.publicationRepository = publicationRepository;
         this.forumRepository = forumRepository;
         this.publicationService = publicationService; // ✅ AJOUT
+        this.commentaireRepository = commentaireRepository;
     }
 
     @GetMapping("/forum/{forumId}")
@@ -71,8 +74,8 @@ public class PublicationController {
         return commentaireRepository.findByPublication_Id(id);
     }
 
-    @PostMapping
-    public Commentaire create(@RequestBody Commentaire commentaire) {
+    @PostMapping("/{publicationId}/commentaires")
+    public Commentaire createCommentaire(@RequestBody Commentaire commentaire) {
         Publication pub = publicationRepository.findById(commentaire.getPublication().getId())
                 .orElseThrow(() -> new RuntimeException("Publication introuvable"));
 
