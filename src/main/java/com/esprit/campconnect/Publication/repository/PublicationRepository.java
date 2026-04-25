@@ -10,6 +10,6 @@ import java.util.List;
 public interface PublicationRepository extends JpaRepository<Publication, Long> {
     List<Publication> findByForum_Id(Long forumId);
     List<Publication> findByAuteurEmail(String auteurEmail);
-    List<Commentaire> findByPublication_Id(Long publicationId);
+    //List<Commentaire> findByPublication_Id(Long publicationId);
 
 }

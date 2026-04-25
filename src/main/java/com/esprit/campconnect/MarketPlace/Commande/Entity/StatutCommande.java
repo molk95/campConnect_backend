@@ -4,5 +4,6 @@ public enum StatutCommande {
     EN_ATTENTE,
     VALIDEE,
     PAYEE,
+    LIVREE,
     ANNULEE
 }
