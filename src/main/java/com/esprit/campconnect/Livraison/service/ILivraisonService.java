@@ -24,4 +24,7 @@ public interface ILivraisonService {
     List<AvailableOrderForLivraisonResponse> getAvailableRepasOrders();
 
     List<Utilisateur> getLivreurs();
+
+    LivraisonResponse createLivraisonAfterPayment(LivraisonCreateRequest request);
+
 }
