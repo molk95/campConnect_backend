@@ -68,8 +68,7 @@ public class LivraisonServiceImpl implements ILivraisonService {
         );
     }
 
-    @Override
-    public LivraisonResponse createLivraison(LivraisonCreateRequest request) {
+    private LivraisonResponse createLivraisonInternal(LivraisonCreateRequest request) {
         if (request.getCommandeId() == null) {
             throw new RuntimeException("commandeId is required");
         }
@@ -80,12 +79,6 @@ public class LivraisonServiceImpl implements ILivraisonService {
 
         if (request.getAdresseLivraison() == null || request.getAdresseLivraison().isBlank()) {
             throw new RuntimeException("adresseLivraison is required");
-        }
-
-        Utilisateur currentUser = getCurrentUser();
-
-        if (currentUser.getRole() != Role.ADMINISTRATEUR) {
-            throw new RuntimeException("Only ADMIN can create a livraison");
         }
 
         if (livraisonCommandeRepository.existsByCommandeIdAndTypeCommande(
@@ -101,17 +94,14 @@ public class LivraisonServiceImpl implements ILivraisonService {
             if (commande.getStatut() != StatutCommande.PAYEE) {
                 throw new RuntimeException("Delivery can only be created for PAYEE orders");
             }
-
         } else {
             CommandeRepas commandeRepas = commandeRepasRepository.findById(request.getCommandeId())
                     .orElseThrow(() -> new RuntimeException("CommandeRepas not found"));
-
 
             if (commandeRepas.getStatut() != StatutCommandeRepas.CONFIRMEE) {
                 throw new RuntimeException("Delivery can only be created for CONFIRMEE food orders");
             }
         }
-
 
         Livraison livraison = new Livraison();
         livraison.setAdresseLivraison(request.getAdresseLivraison());
@@ -126,8 +116,18 @@ public class LivraisonServiceImpl implements ILivraisonService {
         livraison.setLivraisonCommande(livraisonCommande);
 
         Livraison saved = livraisonRepository.save(livraison);
-
         return mapToResponse(saved);
+    }
+
+    @Override
+    public LivraisonResponse createLivraison(LivraisonCreateRequest request) {
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMINISTRATEUR) {
+            throw new RuntimeException("Only ADMIN can create a livraison");
+        }
+
+        return createLivraisonInternal(request);
     }
 
     @Override
@@ -265,17 +265,16 @@ public class LivraisonServiceImpl implements ILivraisonService {
                                         TypeCommandeLivraison.CLASSIQUE
                                 )
                 )
-                .map(commandeRepas -> new AvailableOrderForLivraisonResponse(
-                        commandeRepas.getIdCommande(),
-                        TypeCommandeLivraison.REPAS,
-                        commandeRepas.getDateCommande(),
-                        commandeRepas.getStatut() != null ? commandeRepas.getStatut().name() : null,
-                        commandeRepas.getTotalCommande(),
-
-                        commandeRepas.getUtilisateur() != null ? commandeRepas.getUtilisateur().getId() : null,
-                        commandeRepas.getUtilisateur() != null ? commandeRepas.getUtilisateur().getEmail() : null,
-                        commandeRepas.getUtilisateur() != null ? commandeRepas.getUtilisateur().getNom() : null,
-                        commandeRepas.getUtilisateur() != null ? commandeRepas.getUtilisateur().getTelephone() : null
+                .map(commande -> new AvailableOrderForLivraisonResponse(
+                        commande.getIdCommande(),
+                        TypeCommandeLivraison.CLASSIQUE,
+                        commande.getDateCommande(),
+                        commande.getStatut() != null ? commande.getStatut().name() : null,
+                        commande.getTotalCommande(),
+                        commande.getUtilisateur() != null ? commande.getUtilisateur().getId() : null,
+                        commande.getUtilisateur() != null ? commande.getUtilisateur().getEmail() : null,
+                        commande.getUtilisateur() != null ? commande.getUtilisateur().getNom() : null,
+                        commande.getUtilisateur() != null ? commande.getUtilisateur().getTelephone() : null
                 ))
                 .toList();
     }
@@ -323,6 +322,11 @@ public class LivraisonServiceImpl implements ILivraisonService {
                 .stream()
                 .filter(user -> user.getRole() == Role.LIVREUR)
                 .toList();
+    }
+
+    @Override
+    public LivraisonResponse createLivraisonAfterPayment(LivraisonCreateRequest request) {
+        return createLivraisonInternal(request);
     }
 
     @Override
