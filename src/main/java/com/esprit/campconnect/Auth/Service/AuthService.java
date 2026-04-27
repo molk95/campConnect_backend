@@ -53,7 +53,7 @@ public class AuthService {
         utilisateur.setEmail(request.getEmail());
         utilisateur.setTelephone(request.getTelephone());
         utilisateur.setMotDePasse(passwordEncoder.encode(request.getMotDePasse()));
-        utilisateur.setRole(Role.CLIENT);
+        utilisateur.setRole(request.getRole() != null ? request.getRole() : Role.CLIENT);
 
         utilisateur.setProfil(profil);
         profil.setUtilisateur(utilisateur);

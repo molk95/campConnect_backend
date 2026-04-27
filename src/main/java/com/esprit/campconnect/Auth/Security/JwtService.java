@@ -1,4 +1,5 @@
 package com.esprit.campconnect.Auth.Security;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -17,7 +18,6 @@ import java.util.Map;
 import java.util.function.Function;
 
 @Service
-
 public class JwtService {
 
     @Value("${app.jwt.secret}")
@@ -26,7 +26,7 @@ public class JwtService {
     @Value("${app.jwt.expiration}")
     private long jwtExpiration;
 
-    private static final long JWT_EXPIRATION = 1000 * 60 * 60 * 24;
+    private static final long JWT_EXPIRATION = 1000L * 60 * 60 * 24;
     private static final long TEMP_2FA_EXPIRATION = 1000L * 60 * 5;
 
     public String extractUsername(String token) {
@@ -39,6 +39,10 @@ public class JwtService {
 
     public String extractTokenType(String token) {
         return extractClaim(token, claims -> claims.get("tokenType", String.class));
+    }
+
+    public Long extractUserId(String token) {
+        return extractClaim(token, claims -> claims.get("userId", Long.class));
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -58,7 +62,14 @@ public class JwtService {
         claims.put("role", role);
         claims.put("tokenType", "ACCESS");
 
-        return generateToken(claims, userDetails, JWT_EXPIRATION);
+        if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur utilisateur) {
+            Long userId = utilisateur.getId();
+            if (userId != null) {
+                claims.put("userId", userId);
+            }
+        }
+
+        return generateToken(claims, userDetails, jwtExpiration);
     }
 
     public String generateTemp2FAToken(UserDetails userDetails) {
@@ -73,28 +84,22 @@ public class JwtService {
         claims.put("role", role);
         claims.put("tokenType", "TEMP_2FA");
 
-        return generateToken(claims, userDetails, TEMP_2FA_EXPIRATION);
-        // Add userId if userDetails is a Utilisateur
-        if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur) {
-            Long userId = ((com.esprit.campconnect.User.Entity.Utilisateur) userDetails).getId();
+        if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur utilisateur) {
+            Long userId = utilisateur.getId();
             if (userId != null) {
                 claims.put("userId", userId);
             }
         }
 
-        return generateToken(claims, userDetails);
+        return generateToken(claims, userDetails, TEMP_2FA_EXPIRATION);
     }
 
     public void addUserIdToClaims(Map<String, Object> claims, Long userId) {
         claims.put("userId", userId);
     }
 
-    public Long extractUserId(String token) {
-        return extractClaim(token, claims -> claims.get("userId", Long.class));
-    }
-
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-        return generateToken(extraClaims, userDetails, JWT_EXPIRATION);
+        return generateToken(extraClaims, userDetails, jwtExpiration);
     }
 
     private String generateToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
