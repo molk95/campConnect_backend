@@ -62,6 +62,7 @@ public class Utilisateur implements UserDetails {
     @JoinColumn(name = "profil_id")
     Profil profil;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "utilisateur", cascade = CascadeType.ALL)
     List<SouscriptionAssurance> souscriptionsAssurance;
 
