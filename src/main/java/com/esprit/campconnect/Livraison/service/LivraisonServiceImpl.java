@@ -1,9 +1,11 @@
 package com.esprit.campconnect.Livraison.service;
 
+import com.esprit.campconnect.Livraison.demo.service.OpenStreetMapGeocodingService;
 import com.esprit.campconnect.Livraison.dto.*;
 import com.esprit.campconnect.Livraison.entity.*;
 import com.esprit.campconnect.Livraison.repository.LivraisonCommandeRepository;
 import com.esprit.campconnect.Livraison.repository.LivraisonRepository;
+import com.esprit.campconnect.Livraison.repository.LivreurLocationRepository;
 import com.esprit.campconnect.MarketPlace.Commande.Entity.Commande;
 import com.esprit.campconnect.MarketPlace.Commande.Entity.StatutCommande;
 import com.esprit.campconnect.MarketPlace.Commande.Repository.CommandeRepository;
@@ -19,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -30,8 +33,10 @@ public class LivraisonServiceImpl implements ILivraisonService {
     private final CommandeRepository commandeRepository;
     private final CommandeRepasRepository commandeRepasRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final LivreurLocationRepository livreurLocationRepository;
+    private final OpenStreetMapGeocodingService geocodingService;
 
-    private static final int MAX_ACTIVE_LIVRAISONS_PER_LIVREUR = 5;
+    private static final int MAX_ACTIVE_LIVRAISONS_PER_LIVREUR = 999999995;
 
     private Utilisateur getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -63,8 +68,12 @@ public class LivraisonServiceImpl implements ILivraisonService {
                 l.getLivreur() != null ? l.getLivreur().getNom() : null,
                 l.getLivreur() != null ? l.getLivreur().getEmail() : null,
 
+                l.getLatitudeLivraison(),
+                l.getLongitudeLivraison(),
+
                 lien != null ? lien.getCommandeId() : null,
                 lien != null ? lien.getTypeCommande() : null
+
         );
     }
 
@@ -108,6 +117,17 @@ public class LivraisonServiceImpl implements ILivraisonService {
         livraison.setCommentaire(request.getCommentaire());
         livraison.setStatut(StatutLivraison.PLANIFIEE);
 
+        livraison.setLatitudeLivraison(request.getLatitudeLivraison());
+        livraison.setLongitudeLivraison(request.getLongitudeLivraison());
+
+        livraison.setDistanceKm(request.getDistanceKm());
+        livraison.setPoidsKg(request.getPoidsKg());
+        livraison.setFraisDistance(request.getFraisDistance());
+        livraison.setFraisPoids(request.getFraisPoids());
+        livraison.setFraisMeteo(request.getFraisMeteo());
+        livraison.setFraisLivraisonTotal(request.getFraisLivraisonTotal());
+        livraison.setMeteoCondition(request.getMeteoCondition());
+
         LivraisonCommande livraisonCommande = new LivraisonCommande();
         livraisonCommande.setCommandeId(request.getCommandeId());
         livraisonCommande.setTypeCommande(request.getTypeCommande());
@@ -128,6 +148,28 @@ public class LivraisonServiceImpl implements ILivraisonService {
         }
 
         return createLivraisonInternal(request);
+    }
+
+    private double calculateDistanceMeters(
+            double lat1,
+            double lon1,
+            double lat2,
+            double lon2
+    ) {
+        final int earthRadiusMeters = 6371000;
+
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2)
+                * Math.sin(lonDistance / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return earthRadiusMeters * c;
     }
 
     @Override
@@ -171,6 +213,27 @@ public class LivraisonServiceImpl implements ILivraisonService {
         if (nextStatus == StatutLivraison.LIVREE &&
                 (request.getPreuveLivraison() == null || request.getPreuveLivraison().isBlank())) {
             throw new RuntimeException("Delivery proof is required when marking as delivered");
+        }
+
+        if (nextStatus == StatutLivraison.LIVREE) {
+            if (request.getCurrentLatitude() == null || request.getCurrentLongitude() == null) {
+                throw new RuntimeException("Current location is required to confirm delivery");
+            }
+
+            if (livraison.getLatitudeLivraison() == null || livraison.getLongitudeLivraison() == null) {
+                throw new RuntimeException("Delivery destination location is missing");
+            }
+
+            double distanceMeters = calculateDistanceMeters(
+                    request.getCurrentLatitude(),
+                    request.getCurrentLongitude(),
+                    livraison.getLatitudeLivraison(),
+                    livraison.getLongitudeLivraison()
+            );
+
+            if (distanceMeters > 100) {
+                throw new RuntimeException("You must be within 100 meters of the delivery destination");
+            }
         }
 
         livraison.setStatut(nextStatus);
@@ -327,6 +390,117 @@ public class LivraisonServiceImpl implements ILivraisonService {
     @Override
     public LivraisonResponse createLivraisonAfterPayment(LivraisonCreateRequest request) {
         return createLivraisonInternal(request);
+    }
+
+    @Override
+    public LivreurLocationResponse updateLivreurLocation(
+            Long idLivraison,
+            LivreurLocationUpdateRequest request
+    ) {
+        Livraison livraison = livraisonRepository.findById(idLivraison)
+                .orElseThrow(() -> new RuntimeException("Livraison not found"));
+
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.LIVREUR) {
+            throw new RuntimeException("Only LIVREUR can update live location");
+        }
+
+        if (livraison.getLivreur() == null ||
+                !livraison.getLivreur().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("You are not assigned to this livraison");
+        }
+
+        if (livraison.getStatut() != StatutLivraison.EN_COURS) {
+            throw new RuntimeException("Location can only be updated for delivery in progress");
+        }
+
+        if (request.getLatitude() == null || request.getLongitude() == null) {
+            throw new RuntimeException("Latitude and longitude are required");
+        }
+
+        LivreurLocation location = livreurLocationRepository
+                .findByLivraisonId(idLivraison)
+                .orElseGet(LivreurLocation::new);
+
+        location.setLivraisonId(idLivraison);
+        location.setLivreurId(currentUser.getId());
+        location.setLatitude(request.getLatitude());
+        location.setLongitude(request.getLongitude());
+        location.setUpdatedAt(LocalDateTime.now());
+
+        LivreurLocation saved = livreurLocationRepository.save(location);
+
+        return new LivreurLocationResponse(
+                saved.getLivraisonId(),
+                saved.getLivreurId(),
+                saved.getLatitude(),
+                saved.getLongitude(),
+                saved.getUpdatedAt()
+        );
+    }
+
+    @Override
+    public LivreurLocationResponse getLivreurLocation(Long idLivraison) {
+        Livraison livraison = livraisonRepository.findById(idLivraison)
+                .orElseThrow(() -> new RuntimeException("Livraison not found"));
+
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.CLIENT &&
+                currentUser.getRole() != Role.ADMINISTRATEUR &&
+                currentUser.getRole() != Role.LIVREUR) {
+            throw new RuntimeException("You are not allowed to track this delivery");
+        }
+
+        LivreurLocation location = livreurLocationRepository
+                .findByLivraisonId(idLivraison)
+                .orElseThrow(() -> new RuntimeException("Livreur location not available yet"));
+
+        return new LivreurLocationResponse(
+                location.getLivraisonId(),
+                location.getLivreurId(),
+                location.getLatitude(),
+                location.getLongitude(),
+                location.getUpdatedAt()
+        );
+    }
+
+    @Override
+    public List<LivraisonResponse> getMyClientLivraisons() {
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.CLIENT) {
+            throw new RuntimeException("Only CLIENT can access their deliveries");
+        }
+
+        List<Livraison> livraisons = livraisonRepository.findClientLivraisons(currentUser.getId());
+
+        return livraisons.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public LivraisonResponse getLivraisonById(Long idLivraison) {
+        Livraison livraison = livraisonRepository.findById(idLivraison)
+                .orElseThrow(() -> new RuntimeException("Livraison not found"));
+
+        if (livraison.getLatitudeLivraison() == null || livraison.getLongitudeLivraison() == null) {
+            try {
+                OpenStreetMapGeocodingService.GeocodingResult location =
+                        geocodingService.geocode(livraison.getAdresseLivraison());
+
+                livraison.setLatitudeLivraison(location.latitude());
+                livraison.setLongitudeLivraison(location.longitude());
+
+                livraison = livraisonRepository.save(livraison);
+            } catch (Exception ignored) {
+                // Keep response usable; frontend can show details without map
+            }
+        }
+
+        return mapToResponse(livraison);
     }
 
     @Override

@@ -13,4 +13,15 @@ public class DemoPaymentRequest {
     Double total;
     String adresseLivraison;
     String noteLivraison;
+
+    Double latitudeLivraison;
+    Double longitudeLivraison;
+
+    Double distanceKm;
+    Double poidsKg;
+    Double fraisDistance;
+    Double fraisPoids;
+    Double fraisMeteo;
+    Double fraisLivraisonTotal;
+    String meteoCondition;
 }
