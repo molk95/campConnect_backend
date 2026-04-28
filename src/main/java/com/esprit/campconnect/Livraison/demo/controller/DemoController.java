@@ -1,13 +1,11 @@
 package com.esprit.campconnect.Livraison.demo.controller;
 
-import com.esprit.campconnect.Livraison.demo.dto.DemoCheckoutRequest;
-import com.esprit.campconnect.Livraison.demo.dto.DemoCheckoutResponse;
-import com.esprit.campconnect.Livraison.demo.dto.DemoPaymentRequest;
-import com.esprit.campconnect.Livraison.demo.dto.DemoPaymentResponse;
+import com.esprit.campconnect.Livraison.demo.dto.*;
 import com.esprit.campconnect.Livraison.demo.entity.DemoProduit;
 import com.esprit.campconnect.Livraison.demo.entity.DemoRepas;
 import com.esprit.campconnect.Livraison.demo.service.DemoDataService;
 import com.esprit.campconnect.Livraison.demo.service.DemoPaymentService;
+import com.esprit.campconnect.Livraison.demo.service.WeatherService;
 import com.esprit.campconnect.Livraison.dto.LivraisonResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DemoController {
 
+    private final WeatherService weatherService;
     private final DemoPaymentService paymentService;
     private final DemoDataService demoService;
 
@@ -50,5 +49,18 @@ public class DemoController {
     @GetMapping("/payment/success")
     public LivraisonResponse paymentSuccess(@RequestParam("session_id") String sessionId) {
         return paymentService.handlePaymentSuccess(sessionId);
+    }
+
+    @GetMapping("/weather-surcharge")
+    public WeatherSurchargeResponse getWeatherSurcharge(
+            @RequestParam Double latitude,
+            @RequestParam Double longitude
+    ) {
+        return weatherService.calculateWeatherSurcharge(latitude, longitude);
+    }
+
+    @GetMapping("/address-suggestions")
+    public List<AddressSuggestionResponse> getAddressSuggestions(@RequestParam String query) {
+        return demoService.getAddressSuggestions(query);
     }
 }

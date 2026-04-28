@@ -15,4 +15,15 @@ public class LivraisonCreateRequest {
     TypeCommandeLivraison typeCommande;
     String adresseLivraison;
     String commentaire;
+
+    Double latitudeLivraison;
+    Double longitudeLivraison;
+
+    Double distanceKm;
+    Double poidsKg;
+    Double fraisDistance;
+    Double fraisPoids;
+    Double fraisMeteo;
+    Double fraisLivraisonTotal;
+    String meteoCondition;
 }

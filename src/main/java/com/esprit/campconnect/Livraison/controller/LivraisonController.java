@@ -65,4 +65,27 @@ public class LivraisonController {
     public List<Utilisateur> getLivreurs() {
         return livraisonService.getLivreurs();
     }
+
+    @PatchMapping("/{idLivraison}/livreur-location")
+    public LivreurLocationResponse updateLivreurLocation(
+            @PathVariable Long idLivraison,
+            @RequestBody LivreurLocationUpdateRequest request
+    ) {
+        return livraisonService.updateLivreurLocation(idLivraison, request);
+    }
+
+    @GetMapping("/{idLivraison}/livreur-location")
+    public LivreurLocationResponse getLivreurLocation(@PathVariable Long idLivraison) {
+        return livraisonService.getLivreurLocation(idLivraison);
+    }
+
+    @GetMapping("/client/mine")
+    public List<LivraisonResponse> getMyClientLivraisons() {
+        return livraisonService.getMyClientLivraisons();
+    }
+
+    @GetMapping("/{idLivraison}")
+    public LivraisonResponse getLivraisonById(@PathVariable Long idLivraison) {
+        return livraisonService.getLivraisonById(idLivraison);
+    }
 }
