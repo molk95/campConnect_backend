@@ -27,4 +27,14 @@ public interface ILivraisonService {
 
     LivraisonResponse createLivraisonAfterPayment(LivraisonCreateRequest request);
 
+    LivreurLocationResponse updateLivreurLocation(
+            Long idLivraison,
+            LivreurLocationUpdateRequest request
+    );
+
+    LivreurLocationResponse getLivreurLocation(Long idLivraison);
+    List<LivraisonResponse> getMyClientLivraisons();
+
+    LivraisonResponse getLivraisonById(Long idLivraison);
+
 }

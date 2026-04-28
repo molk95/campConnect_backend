@@ -10,4 +10,5 @@ public class DemoProduit {
     Long id;
     String nom;
     Double prix;
+    Double poidsKg;
 }

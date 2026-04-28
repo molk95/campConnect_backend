@@ -24,6 +24,17 @@ public class Livraison {
     LocalDate dateDepart;
     LocalDate dateLivraisonEffective;
 
+    Double distanceKm;
+    Double poidsKg;
+    Double fraisDistance;
+    Double fraisPoids;
+    Double fraisMeteo;
+    Double fraisLivraisonTotal;
+    String meteoCondition;
+
+    Double latitudeLivraison;
+    Double longitudeLivraison;
+
     @Column(nullable = false)
     String adresseLivraison;
 

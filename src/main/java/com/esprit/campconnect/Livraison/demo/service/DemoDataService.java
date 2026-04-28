@@ -1,7 +1,9 @@
 package com.esprit.campconnect.Livraison.demo.service;
 
+import com.esprit.campconnect.Livraison.demo.dto.AddressSuggestionResponse;
 import com.esprit.campconnect.Livraison.demo.dto.DemoCheckoutRequest;
 import com.esprit.campconnect.Livraison.demo.dto.DemoCheckoutResponse;
+import com.esprit.campconnect.Livraison.demo.dto.LivraisonFeeResponse;
 import com.esprit.campconnect.Livraison.demo.entity.DemoProduit;
 import com.esprit.campconnect.Livraison.demo.entity.DemoRepas;
 import com.esprit.campconnect.Livraison.entity.TypeCommandeLivraison;
@@ -23,14 +25,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DemoDataService {
 
+    private final OpenStreetMapGeocodingService geocodingService;
     private final CommandeRepository commandeRepository;
     private final CommandeRepasRepository commandeRepasRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final LivraisonPricingService pricingService;
+
+    private static final double STORE_LAT = 36.8065;
+    private static final double STORE_LNG = 10.1815;
 
     private final List<DemoProduit> produits = List.of(
-            new DemoProduit(1L, "Tent", 120.0),
-            new DemoProduit(2L, "Sleeping Bag", 60.0),
-            new DemoProduit(3L, "Camping Stove", 45.0)
+            new DemoProduit(1L, "Tent", 120.0, 2.5),
+            new DemoProduit(2L, "Sleeping Bag", 60.0, 0.8),
+            new DemoProduit(3L, "Camping Stove", 45.0, 1.2)
     );
 
     private final List<DemoRepas> repas = List.of(
@@ -38,6 +45,29 @@ public class DemoDataService {
             new DemoRepas(2L, "Pizza", 30.0),
             new DemoRepas(3L, "Tacos", 20.0)
     );
+
+    // ✅ Distance calculation (Haversine)
+    private double calculateDistanceKm(
+            double lat1,
+            double lon1,
+            double lat2,
+            double lon2
+    ) {
+        final int earthRadiusKm = 6371;
+
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+
+        double a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                        Math.cos(Math.toRadians(lat1)) *
+                                Math.cos(Math.toRadians(lat2)) *
+                                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return Math.round((earthRadiusKm * c) * 100.0) / 100.0;
+    }
 
     public List<DemoProduit> getProduits() {
         return produits;
@@ -87,12 +117,14 @@ public class DemoDataService {
         return commandeRepasRepository.save(cmd);
     }
 
+    // ================= CLASSIQUE =================
     public DemoCheckoutResponse createClassicCheckout(DemoCheckoutRequest request) {
+
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new RuntimeException("Please select at least one product");
         }
 
-        double total = request.getItems()
+        double itemsTotal = request.getItems()
                 .stream()
                 .mapToDouble(item -> {
                     DemoProduit produit = findProduit(item.getId());
@@ -100,24 +132,85 @@ public class DemoDataService {
                 })
                 .sum();
 
-        Commande commande = createCommande(total);
+        double poidsKg = request.getItems()
+                .stream()
+                .mapToDouble(item -> {
+                    DemoProduit produit = findProduit(item.getId());
+                    return produit.getPoidsKg() * item.getQuantity();
+                })
+                .sum();
+
+        double latitude;
+        double longitude;
+        String finalAddress;
+
+        if (request.getLatitude() != null && request.getLongitude() != null) {
+            latitude = request.getLatitude();
+            longitude = request.getLongitude();
+            finalAddress = request.getAdresseLivraison();
+        } else {
+            OpenStreetMapGeocodingService.GeocodingResult location =
+                    geocodingService.geocode(request.getAdresseLivraison());
+
+            latitude = location.latitude();
+            longitude = location.longitude();
+            finalAddress = location.formattedAddress();
+        }
+
+        double distanceKm = calculateDistanceKm(
+                STORE_LAT,
+                STORE_LNG,
+                latitude,
+                longitude
+        );
+
+        LivraisonFeeResponse fee = pricingService.calculateFee(
+                itemsTotal,
+                distanceKm,
+                poidsKg,
+                latitude,
+                longitude
+        );
+
+        Commande commande = createCommande(fee.getFinalTotal());
 
         return new DemoCheckoutResponse(
                 commande.getIdCommande(),
                 TypeCommandeLivraison.CLASSIQUE,
-                total,
-                request.getAdresseLivraison(),
+
+                fee.getItemsTotal(),
+
+                fee.getBaseFee(),
+                fee.getDistanceFee(),
+                fee.getWeightFee(),
+                fee.getWeatherFee(),
+                fee.getDeliveryFee(),
+                fee.getFinalTotal(),
+
+                fee.getDistanceKm(),
+                fee.getPoidsKg(),
+
+                latitude,
+                longitude,
+
+                finalAddress,
                 request.getNoteLivraison(),
-                commande.getStatut().name()
+                commande.getStatut().name(),
+
+                fee.getWeatherCondition(),
+                fee.getTemperature(),
+                fee.getPrecipitation()
         );
     }
 
+    // ================= REPAS =================
     public DemoCheckoutResponse createRepasCheckout(DemoCheckoutRequest request) {
+
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new RuntimeException("Please select at least one meal");
         }
 
-        double total = request.getItems()
+        double itemsTotal = request.getItems()
                 .stream()
                 .mapToDouble(item -> {
                     DemoRepas repasItem = findRepas(item.getId());
@@ -125,15 +218,75 @@ public class DemoDataService {
                 })
                 .sum();
 
-        CommandeRepas commandeRepas = createCommandeRepas(total);
+        double poidsKg = request.getItems()
+                .stream()
+                .mapToDouble(item -> 0.5 * item.getQuantity())
+                .sum();
+
+        double latitude;
+        double longitude;
+        String finalAddress;
+
+        if (request.getLatitude() != null && request.getLongitude() != null) {
+            latitude = request.getLatitude();
+            longitude = request.getLongitude();
+            finalAddress = request.getAdresseLivraison();
+        } else {
+            OpenStreetMapGeocodingService.GeocodingResult location =
+                    geocodingService.geocode(request.getAdresseLivraison());
+
+            latitude = location.latitude();
+            longitude = location.longitude();
+            finalAddress = location.formattedAddress();
+        }
+
+        double distanceKm = calculateDistanceKm(
+                STORE_LAT,
+                STORE_LNG,
+                latitude,
+                longitude
+        );
+
+        LivraisonFeeResponse fee = pricingService.calculateFee(
+                itemsTotal,
+                distanceKm,
+                poidsKg,
+                latitude,
+                longitude
+        );
+
+        CommandeRepas commandeRepas = createCommandeRepas(fee.getFinalTotal());
 
         return new DemoCheckoutResponse(
                 commandeRepas.getId(),
                 TypeCommandeLivraison.REPAS,
-                total,
-                request.getAdresseLivraison(),
+
+                fee.getItemsTotal(),
+
+                fee.getBaseFee(),
+                fee.getDistanceFee(),
+                fee.getWeightFee(),
+                fee.getWeatherFee(),
+                fee.getDeliveryFee(),
+                fee.getFinalTotal(),
+
+                fee.getDistanceKm(),
+                fee.getPoidsKg(),
+
+                latitude,
+                longitude,
+
+                finalAddress,
                 request.getNoteLivraison(),
-                commandeRepas.getStatut().name()
+                commandeRepas.getStatut().name(),
+
+                fee.getWeatherCondition(),
+                fee.getTemperature(),
+                fee.getPrecipitation()
         );
+    }
+
+    public List<AddressSuggestionResponse> getAddressSuggestions(String query) {
+        return geocodingService.autocomplete(query);
     }
 }

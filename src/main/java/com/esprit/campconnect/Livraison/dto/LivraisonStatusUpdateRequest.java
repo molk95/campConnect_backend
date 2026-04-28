@@ -14,4 +14,7 @@ public class LivraisonStatusUpdateRequest {
     StatutLivraison statut;
     String preuveLivraison;
     String commentaire;
+
+    private Double currentLatitude;
+    private Double currentLongitude;
 }
