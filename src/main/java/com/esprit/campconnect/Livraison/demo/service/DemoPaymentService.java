@@ -15,7 +15,7 @@ import com.esprit.campconnect.Restauration.Repository.CommandeRepasRepository;
 import com.stripe.Stripe;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
-import lombok.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -61,6 +61,16 @@ public class DemoPaymentService {
                     .putMetadata("typeCommande", request.getTypeCommande().name())
                     .putMetadata("adresseLivraison", request.getAdresseLivraison())
                     .putMetadata("noteLivraison", request.getNoteLivraison() != null ? request.getNoteLivraison() : "")
+
+                    .putMetadata("latitudeLivraison", String.valueOf(request.getLatitudeLivraison()))
+                    .putMetadata("longitudeLivraison", String.valueOf(request.getLongitudeLivraison()))
+                    .putMetadata("distanceKm", String.valueOf(request.getDistanceKm()))
+                    .putMetadata("poidsKg", String.valueOf(request.getPoidsKg()))
+                    .putMetadata("fraisDistance", String.valueOf(request.getFraisDistance()))
+                    .putMetadata("fraisPoids", String.valueOf(request.getFraisPoids()))
+                    .putMetadata("fraisMeteo", String.valueOf(request.getFraisMeteo()))
+                    .putMetadata("fraisLivraisonTotal", String.valueOf(request.getFraisLivraisonTotal()))
+                    .putMetadata("meteoCondition", request.getMeteoCondition() != null ? request.getMeteoCondition() : "")
                     .build();
 
             Session session = Session.create(params);
@@ -84,7 +94,8 @@ public class DemoPaymentService {
             String noteLivraison = session.getMetadata().get("noteLivraison");
 
             Long commandeId = Long.valueOf(commandeIdValue);
-            TypeCommandeLivraison typeCommande = TypeCommandeLivraison.valueOf(typeCommandeValue);
+            TypeCommandeLivraison typeCommande =
+                    TypeCommandeLivraison.valueOf(typeCommandeValue);
 
             if (typeCommande == TypeCommandeLivraison.CLASSIQUE) {
                 Commande commande = commandeRepository.findById(commandeId)
@@ -105,6 +116,35 @@ public class DemoPaymentService {
             livraisonRequest.setTypeCommande(typeCommande);
             livraisonRequest.setAdresseLivraison(adresseLivraison);
             livraisonRequest.setCommentaire(noteLivraison);
+
+            livraisonRequest.setLatitudeLivraison(
+                    Double.valueOf(session.getMetadata().get("latitudeLivraison"))
+            );
+            livraisonRequest.setLongitudeLivraison(
+                    Double.valueOf(session.getMetadata().get("longitudeLivraison"))
+            );
+
+            livraisonRequest.setDistanceKm(
+                    Double.valueOf(session.getMetadata().get("distanceKm"))
+            );
+            livraisonRequest.setPoidsKg(
+                    Double.valueOf(session.getMetadata().get("poidsKg"))
+            );
+            livraisonRequest.setFraisDistance(
+                    Double.valueOf(session.getMetadata().get("fraisDistance"))
+            );
+            livraisonRequest.setFraisPoids(
+                    Double.valueOf(session.getMetadata().get("fraisPoids"))
+            );
+            livraisonRequest.setFraisMeteo(
+                    Double.valueOf(session.getMetadata().get("fraisMeteo"))
+            );
+            livraisonRequest.setFraisLivraisonTotal(
+                    Double.valueOf(session.getMetadata().get("fraisLivraisonTotal"))
+            );
+            livraisonRequest.setMeteoCondition(
+                    session.getMetadata().get("meteoCondition")
+            );
 
             return livraisonService.createLivraisonAfterPayment(livraisonRequest);
 

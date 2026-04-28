@@ -26,6 +26,9 @@ public class LivraisonResponse {
     String livreurNom;
     String livreurEmail;
 
+    Double latitudeLivraison;
+    Double longitudeLivraison;
+
     Long commandeId;
     TypeCommandeLivraison typeCommande;
 }
