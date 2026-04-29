@@ -1,10 +1,15 @@
 package com.esprit.campconnect.Livraison.controller;
 
 import com.esprit.campconnect.Livraison.dto.*;
+import com.esprit.campconnect.Livraison.entity.LivreurTip;
+import com.esprit.campconnect.Livraison.entity.LivreurWallet;
 import com.esprit.campconnect.Livraison.service.ILivraisonService;
+import com.esprit.campconnect.Livraison.service.LivreurTipStripeService;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,6 +20,7 @@ import java.util.List;
 @Tag(name = "Gestion Livraison")
 public class LivraisonController {
 
+    private final LivreurTipStripeService livreurTipStripeService;
     private final ILivraisonService livraisonService;
 
     @PostMapping
@@ -87,5 +93,44 @@ public class LivraisonController {
     @GetMapping("/{idLivraison}")
     public LivraisonResponse getLivraisonById(@PathVariable Long idLivraison) {
         return livraisonService.getLivraisonById(idLivraison);
+    }
+
+    @GetMapping("/{idLivraison}/tips")
+    public List<LivreurTip> getTipsByLivraison(@PathVariable Long idLivraison) {
+        return livraisonService.getTipsByLivraison(idLivraison);
+    }
+
+    @GetMapping("/livreur/wallet")
+    public LivreurWallet getMyWallet() {
+        return livraisonService.getMyWallet();
+    }
+
+    @GetMapping("/livreur/tips")
+    public List<LivreurTip> getMyTips() {
+        return livraisonService.getMyTips();
+    }
+
+    @PostMapping("/{idLivraison}/tip/create-session")
+    public TipPaymentResponse createTipSession(
+            @PathVariable Long idLivraison,
+            @RequestBody TipLivreurRequest request
+    ) {
+        return livreurTipStripeService.createTipSession(idLivraison, request);
+    }
+
+    @GetMapping("/tip/success")
+    public ResponseEntity<String> tipSuccess(@RequestParam("session_id") String sessionId) {
+        livreurTipStripeService.handleTipPaymentSuccess(sessionId);
+        return ResponseEntity.ok("Tip payment confirmed successfully");
+    }
+
+    @GetMapping("/tip/cancel")
+    public ResponseEntity<String> tipCancel() {
+        return ResponseEntity.ok("Tip payment cancelled");
+    }
+
+    @PatchMapping("/{idLivraison}/cancel")
+    public LivraisonResponse cancelLivraison(@PathVariable Long idLivraison) {
+        return livraisonService.cancelLivraison(idLivraison);
     }
 }
