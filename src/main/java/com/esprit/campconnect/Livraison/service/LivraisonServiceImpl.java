@@ -3,9 +3,7 @@ package com.esprit.campconnect.Livraison.service;
 import com.esprit.campconnect.Livraison.demo.service.OpenStreetMapGeocodingService;
 import com.esprit.campconnect.Livraison.dto.*;
 import com.esprit.campconnect.Livraison.entity.*;
-import com.esprit.campconnect.Livraison.repository.LivraisonCommandeRepository;
-import com.esprit.campconnect.Livraison.repository.LivraisonRepository;
-import com.esprit.campconnect.Livraison.repository.LivreurLocationRepository;
+import com.esprit.campconnect.Livraison.repository.*;
 import com.esprit.campconnect.MarketPlace.Commande.Entity.Commande;
 import com.esprit.campconnect.MarketPlace.Commande.Entity.StatutCommande;
 import com.esprit.campconnect.MarketPlace.Commande.Repository.CommandeRepository;
@@ -15,6 +13,8 @@ import com.esprit.campconnect.Restauration.Repository.CommandeRepasRepository;
 import com.esprit.campconnect.User.Entity.Role;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
+import com.esprit.campconnect.common.EmailService;
+import com.esprit.campconnect.common.LivraisonEmailTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,6 +28,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LivraisonServiceImpl implements ILivraisonService {
 
+    private final EmailService emailService;
+    private final LivraisonEmailTemplateService livraisonEmailTemplateService;
     private final LivraisonRepository livraisonRepository;
     private final LivraisonCommandeRepository livraisonCommandeRepository;
     private final CommandeRepository commandeRepository;
@@ -35,6 +37,8 @@ public class LivraisonServiceImpl implements ILivraisonService {
     private final UtilisateurRepository utilisateurRepository;
     private final LivreurLocationRepository livreurLocationRepository;
     private final OpenStreetMapGeocodingService geocodingService;
+    private final LivreurWalletRepository walletRepository;
+    private final LivreurTipRepository tipRepository;
 
     private static final int MAX_ACTIVE_LIVRAISONS_PER_LIVREUR = 999999995;
 
@@ -174,71 +178,29 @@ public class LivraisonServiceImpl implements ILivraisonService {
 
     @Override
     public LivraisonResponse updateStatus(Long idLivraison, LivraisonStatusUpdateRequest request) {
+
         Livraison livraison = livraisonRepository.findById(idLivraison)
                 .orElseThrow(() -> new RuntimeException("Livraison not found"));
 
         Utilisateur currentUser = getCurrentUser();
 
-        if (currentUser.getRole() != Role.LIVREUR) {
-            throw new RuntimeException("Only LIVREUR can update delivery status");
-        }
-
-        if (livraison.getLivreur() == null || !livraison.getLivreur().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("You are not assigned to this livraison");
-        }
-
         if (request.getStatut() == null) {
             throw new RuntimeException("Statut is required");
         }
 
-        StatutLivraison currentStatus = livraison.getStatut();
         StatutLivraison nextStatus = request.getStatut();
 
-        if (currentStatus == StatutLivraison.LIVREE) {
-            throw new RuntimeException("Cannot modify a delivered livraison");
+        if (currentUser.getRole() != Role.LIVREUR &&
+                currentUser.getRole() != Role.ADMINISTRATEUR) {
+            throw new RuntimeException("Not allowed");
         }
 
-        if (nextStatus != StatutLivraison.EN_COURS && nextStatus != StatutLivraison.LIVREE) {
-            throw new RuntimeException("Livreur can only start or mark a livraison as delivered");
-        }
-
-        if (currentStatus == StatutLivraison.PLANIFIEE && nextStatus != StatutLivraison.EN_COURS) {
-            throw new RuntimeException("Livraison must be started before being delivered");
-        }
-
-        if (currentStatus == StatutLivraison.EN_COURS && nextStatus != StatutLivraison.LIVREE) {
-            throw new RuntimeException("Livraison in progress can only be marked as delivered");
-        }
-
-        if (nextStatus == StatutLivraison.LIVREE &&
-                (request.getPreuveLivraison() == null || request.getPreuveLivraison().isBlank())) {
-            throw new RuntimeException("Delivery proof is required when marking as delivered");
-        }
-
-        if (nextStatus == StatutLivraison.LIVREE) {
-            if (request.getCurrentLatitude() == null || request.getCurrentLongitude() == null) {
-                throw new RuntimeException("Current location is required to confirm delivery");
-            }
-
-            if (livraison.getLatitudeLivraison() == null || livraison.getLongitudeLivraison() == null) {
-                throw new RuntimeException("Delivery destination location is missing");
-            }
-
-            double distanceMeters = calculateDistanceMeters(
-                    request.getCurrentLatitude(),
-                    request.getCurrentLongitude(),
-                    livraison.getLatitudeLivraison(),
-                    livraison.getLongitudeLivraison()
-            );
-
-            if (distanceMeters > 100) {
-                throw new RuntimeException("You must be within 100 meters of the delivery destination");
+        if (currentUser.getRole() == Role.LIVREUR) {
+            if (livraison.getLivreur() == null ||
+                    !livraison.getLivreur().getId().equals(currentUser.getId())) {
+                throw new RuntimeException("You are not assigned to this livraison");
             }
         }
-
-        livraison.setStatut(nextStatus);
-        livraison.setCommentaire(request.getCommentaire());
-        livraison.setPreuveLivraison(request.getPreuveLivraison());
 
         if (nextStatus == StatutLivraison.EN_COURS && livraison.getDateDepart() == null) {
             livraison.setDateDepart(LocalDate.now());
@@ -247,26 +209,33 @@ public class LivraisonServiceImpl implements ILivraisonService {
         if (nextStatus == StatutLivraison.LIVREE) {
             livraison.setDateLivraisonEffective(LocalDate.now());
 
-            LivraisonCommande lien = livraison.getLivraisonCommande();
-            if (lien == null) {
-                throw new RuntimeException("LivraisonCommande not found");
+            if (request.getPreuveLivraison() == null || request.getPreuveLivraison().isBlank()) {
+                livraison.setPreuveLivraison("Delivery confirmed automatically by GPS simulation");
+            } else {
+                livraison.setPreuveLivraison(request.getPreuveLivraison());
             }
 
-            if (lien.getTypeCommande() == TypeCommandeLivraison.CLASSIQUE) {
-                Commande commande = commandeRepository.findById(lien.getCommandeId())
-                        .orElseThrow(() -> new RuntimeException("Commande not found"));
-                commande.setStatut(StatutCommande.LIVREE);
-                commandeRepository.save(commande);
-            } else {
-                CommandeRepas commandeRepas = commandeRepasRepository.findById(lien.getCommandeId())
-                        .orElseThrow(() -> new RuntimeException("CommandeRepas not found"));
-                commandeRepas.setStatut(StatutCommandeRepas.LIVREE);
-                commandeRepasRepository.save(commandeRepas);
+            LivraisonCommande lien = livraison.getLivraisonCommande();
+
+            if (lien != null) {
+                if (lien.getTypeCommande() == TypeCommandeLivraison.CLASSIQUE) {
+                    Commande commande = commandeRepository.findById(lien.getCommandeId())
+                            .orElseThrow(() -> new RuntimeException("Commande not found"));
+                    commande.setStatut(StatutCommande.LIVREE);
+                    commandeRepository.save(commande);
+                } else {
+                    CommandeRepas commandeRepas = commandeRepasRepository.findById(lien.getCommandeId())
+                            .orElseThrow(() -> new RuntimeException("CommandeRepas not found"));
+                    commandeRepas.setStatut(StatutCommandeRepas.LIVREE);
+                    commandeRepasRepository.save(commandeRepas);
+                }
             }
         }
 
-        Livraison updated = livraisonRepository.save(livraison);
-        return mapToResponse(updated);
+        livraison.setStatut(nextStatus);
+        livraison.setCommentaire(request.getCommentaire());
+
+        return mapToResponse(livraisonRepository.save(livraison));
     }
 
     @Override
@@ -504,7 +473,119 @@ public class LivraisonServiceImpl implements ILivraisonService {
     }
 
     @Override
+    public void tipLivreur(Long idLivraison, TipLivreurRequest request) {
+        Livraison livraison = livraisonRepository.findById(idLivraison)
+                .orElseThrow(() -> new RuntimeException("Livraison not found"));
+
+        Utilisateur currentUser = getCurrentUser();
+
+        if (tipRepository.existsByLivraisonIdAndClientId(
+                idLivraison,
+                currentUser.getId()
+        )) {
+            throw new RuntimeException("You already tipped/rated this delivery");
+        }
+
+        if (livraison.getStatut() != StatutLivraison.LIVREE) {
+            throw new RuntimeException("You can only tip and rate after delivery is completed");
+        }
+
+        if (livraison.getLivreur() == null) {
+            throw new RuntimeException("No livreur assigned");
+        }
+
+        if (request.getRating() == null || request.getRating() < 1 || request.getRating() > 5) {
+            throw new RuntimeException("Rating must be between 1 and 5");
+        }
+
+        Double tipAmount = request.getAmount() != null ? request.getAmount() : 0.0;
+
+        if (tipAmount < 0) {
+            throw new RuntimeException("Invalid tip amount");
+        }
+
+        Long livreurId = livraison.getLivreur().getId();
+
+        if (tipAmount > 0) {
+            LivreurWallet wallet = walletRepository
+                    .findByLivreurId(livreurId)
+                    .orElseGet(() -> {
+                        LivreurWallet w = new LivreurWallet();
+                        w.setLivreurId(livreurId);
+                        w.setBalance(0.0);
+                        return w;
+                    });
+
+            wallet.setBalance(wallet.getBalance() + tipAmount);
+            walletRepository.save(wallet);
+        }
+
+        LivreurTip tip = new LivreurTip();
+        tip.setLivraisonId(idLivraison);
+        tip.setClientId(currentUser.getId());
+        tip.setLivreurId(livreurId);
+        tip.setAmount(tipAmount);
+        tip.setRating(request.getRating());
+        tip.setComment(request.getComment());
+        tip.setCreatedAt(LocalDateTime.now());
+
+        tipRepository.save(tip);
+
+        if (tipAmount > 0 && livraison.getLivreur().getEmail() != null) {
+            String htmlBody = livraisonEmailTemplateService.buildLivreurTipReceivedEmail(
+                    livraison.getLivreur().getNom(),
+                    idLivraison,
+                    tipAmount,
+                    request.getRating(),
+                    request.getComment()
+            );
+
+            emailService.sendHtmlEmail(
+                    livraison.getLivreur().getEmail(),
+                    "You received a new tip!",
+                    htmlBody,
+                    null,
+                    null
+            );
+        }
+    }
+
+    @Override
+    public List<LivreurTip> getTipsByLivraison(Long idLivraison) {
+        return tipRepository.findByLivraisonIdOrderByCreatedAtDesc(idLivraison);
+    }
+
+    @Override
+    public LivreurWallet getMyWallet() {
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.LIVREUR) {
+            throw new RuntimeException("Only LIVREUR can access wallet");
+        }
+
+        return walletRepository.findByLivreurId(currentUser.getId())
+                .orElseGet(() -> {
+                    LivreurWallet wallet = new LivreurWallet();
+                    wallet.setLivreurId(currentUser.getId());
+                    wallet.setBalance(0.0);
+                    return walletRepository.save(wallet);
+                });
+    }
+
+    @Override
+    public List<LivreurTip> getMyTips() {
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.LIVREUR) {
+            throw new RuntimeException("Only LIVREUR can access tips");
+        }
+
+        return tipRepository.findByLivreurIdOrderByCreatedAtDesc(currentUser.getId());
+    }
+
+    @Override
     public LivraisonResponse assignLivreur(Long idLivraison, Long livreurId) {
+
         Utilisateur currentUser = getCurrentUser();
 
         if (currentUser.getRole() != Role.ADMINISTRATEUR) {
@@ -514,33 +595,36 @@ public class LivraisonServiceImpl implements ILivraisonService {
         Livraison livraison = livraisonRepository.findById(idLivraison)
                 .orElseThrow(() -> new RuntimeException("Livraison not found"));
 
-        if (livraison.getLivreur() != null) {
-            throw new RuntimeException("Livreur already assigned");
-        }
-
         if (livraison.getStatut() == StatutLivraison.LIVREE) {
-            throw new RuntimeException("Cannot assign livreur to a delivered livraison");
+            throw new RuntimeException("Cannot assign livreur to delivered livraison");
         }
 
         Utilisateur livreur = utilisateurRepository.findById(livreurId)
                 .orElseThrow(() -> new RuntimeException("Livreur not found"));
 
         if (livreur.getRole() != Role.LIVREUR) {
-            throw new RuntimeException("User is not a LIVREUR");
+            throw new RuntimeException("User is not LIVREUR");
         }
 
-        long activeLivraisons = livraisonRepository.countByLivreur_IdAndStatutIn(
-                livreurId,
-                List.of(StatutLivraison.PLANIFIEE, StatutLivraison.EN_COURS)
-        );
-
-        if (activeLivraisons >= MAX_ACTIVE_LIVRAISONS_PER_LIVREUR) {
-            throw new RuntimeException("This livreur already reached the maximum number of active livraisons");
-        }
-
+        // REASSIGN
         livraison.setLivreur(livreur);
 
-        Livraison saved = livraisonRepository.save(livraison);
-        return mapToResponse(saved);
+        return mapToResponse(livraisonRepository.save(livraison));
+    }
+
+    public LivraisonResponse cancelLivraison(Long idLivraison) {
+
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMINISTRATEUR) {
+            throw new RuntimeException("Only ADMIN can cancel");
+        }
+
+        Livraison livraison = livraisonRepository.findById(idLivraison)
+                .orElseThrow(() -> new RuntimeException("Livraison not found"));
+
+        livraison.setStatut(StatutLivraison.ANNULEE);
+
+        return mapToResponse(livraisonRepository.save(livraison));
     }
 }
