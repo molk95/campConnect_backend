@@ -3,6 +3,7 @@ package com.esprit.campconnect.Livraison.service;
 import com.esprit.campconnect.Livraison.dto.*;
 import com.esprit.campconnect.Livraison.entity.LivreurTip;
 import com.esprit.campconnect.Livraison.entity.LivreurWallet;
+import com.esprit.campconnect.Livraison.entity.LivreurWithdraw;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 
 import java.util.List;
@@ -46,5 +47,10 @@ public interface ILivraisonService {
     LivreurWallet getMyWallet();
 
     List<LivreurTip> getMyTips();
+
+    List<AdminLivreurWalletResponse> getAllLivreurWallets();
+
+    LivreurWallet markLivreurWalletAsPaid(Long livreurId);
+    List<LivreurWithdraw> getMyWithdrawHistory();
 
 }

@@ -3,6 +3,7 @@ package com.esprit.campconnect.Livraison.controller;
 import com.esprit.campconnect.Livraison.dto.*;
 import com.esprit.campconnect.Livraison.entity.LivreurTip;
 import com.esprit.campconnect.Livraison.entity.LivreurWallet;
+import com.esprit.campconnect.Livraison.entity.LivreurWithdraw;
 import com.esprit.campconnect.Livraison.service.ILivraisonService;
 import com.esprit.campconnect.Livraison.service.LivreurTipStripeService;
 import com.esprit.campconnect.User.Entity.Utilisateur;
@@ -132,5 +133,20 @@ public class LivraisonController {
     @PatchMapping("/{idLivraison}/cancel")
     public LivraisonResponse cancelLivraison(@PathVariable Long idLivraison) {
         return livraisonService.cancelLivraison(idLivraison);
+    }
+
+    @GetMapping("/admin/livreur-wallets")
+    public List<AdminLivreurWalletResponse> getAllLivreurWallets() {
+        return livraisonService.getAllLivreurWallets();
+    }
+
+    @PatchMapping("/admin/livreurs/{livreurId}/wallet/pay")
+    public LivreurWallet markLivreurWalletAsPaid(@PathVariable Long livreurId) {
+        return livraisonService.markLivreurWalletAsPaid(livreurId);
+    }
+
+    @GetMapping("/livreur/withdraw-history")
+    public List<LivreurWithdraw> getMyWithdrawHistory() {
+        return livraisonService.getMyWithdrawHistory();
     }
 }
