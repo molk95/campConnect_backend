@@ -39,6 +39,7 @@ public class LivraisonServiceImpl implements ILivraisonService {
     private final OpenStreetMapGeocodingService geocodingService;
     private final LivreurWalletRepository walletRepository;
     private final LivreurTipRepository tipRepository;
+    private final LivreurWithdrawRepository withdrawRepository;
 
     private static final int MAX_ACTIVE_LIVRAISONS_PER_LIVREUR = 999999995;
 
@@ -581,6 +582,78 @@ public class LivraisonServiceImpl implements ILivraisonService {
         }
 
         return tipRepository.findByLivreurIdOrderByCreatedAtDesc(currentUser.getId());
+    }
+
+    @Override
+    public List<AdminLivreurWalletResponse> getAllLivreurWallets() {
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMINISTRATEUR) {
+            throw new RuntimeException("Only ADMIN can access livreur wallets");
+        }
+
+        return utilisateurRepository.findAll()
+                .stream()
+                .filter(user -> user.getRole() == Role.LIVREUR)
+                .map(livreur -> {
+                    LivreurWallet wallet = walletRepository.findByLivreurId(livreur.getId())
+                            .orElseGet(() -> {
+                                LivreurWallet newWallet = new LivreurWallet();
+                                newWallet.setLivreurId(livreur.getId());
+                                newWallet.setBalance(0.0);
+                                return walletRepository.save(newWallet);
+                            });
+
+                    return new AdminLivreurWalletResponse(
+                            livreur.getId(),
+                            livreur.getNom(),
+                            livreur.getEmail(),
+                            wallet.getBalance()
+                    );
+                })
+                .toList();
+    }
+
+    @Override
+    public LivreurWallet markLivreurWalletAsPaid(Long livreurId) {
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMINISTRATEUR) {
+            throw new RuntimeException("Only ADMIN can mark wallet as paid");
+        }
+
+        LivreurWallet wallet = walletRepository.findByLivreurId(livreurId)
+                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+
+        Double amount = wallet.getBalance();
+
+        if (amount <= 0) {
+            throw new RuntimeException("Nothing to payout");
+        }
+
+        // CREATE HISTORY
+        LivreurWithdraw withdraw = new LivreurWithdraw();
+        withdraw.setLivreurId(livreurId);
+        withdraw.setAmount(amount);
+        withdraw.setStatus("PAID");
+        withdraw.setCreatedAt(LocalDateTime.now());
+
+        withdrawRepository.save(withdraw);
+
+        // RESET WALLET
+        wallet.setBalance(0.0);
+
+        return walletRepository.save(wallet);
+    }
+    @Override
+    public List<LivreurWithdraw> getMyWithdrawHistory() {
+        Utilisateur currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.LIVREUR) {
+            throw new RuntimeException("Only LIVREUR can access withdraw history");
+        }
+
+        return withdrawRepository.findByLivreurIdOrderByCreatedAtDesc(currentUser.getId());
     }
 
     @Override
