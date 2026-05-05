@@ -56,7 +56,7 @@ public class SecurityConfig {
                                 "/site-camping-avis/**",
                                 "/inscriptionsite/**",
                                 "/reclamations/**",
-                                "/reclamation-notifications/**",
+                        "/reclamation-notifications/**",
                                 "/repas/**",
                                 "/commandes-repas/**",
                                 "/produits/**",
@@ -64,9 +64,26 @@ public class SecurityConfig {
                                 "/paniers/**",
                                 "/commandes/**",
                                 "/details-commandes/**",
-                                "/commentaires",
+                                 "/commentaires",
                                 "/uploads/**",
                                 "/forums/**").permitAll()
+
+
+
+                                .requestMatchers(HttpMethod.GET, "/api/repas/**")
+                                //.hasAnyRole("CLIENT", "GERANT_RESTAU")
+                                .hasAnyAuthority("CLIENT", "GERANT_RESTAU")
+//                        .requestMatchers(HttpMethod.GET, "/repas/**").permitAll()
+
+                        .requestMatchers(HttpMethod.POST, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.PUT, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.DELETE, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.POST, "/commandes/**").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.GET, "/commandes/**").authenticated()
+
+
+
+
 
 
 

@@ -70,6 +70,7 @@ public class RepasServiceImpl implements RepasService {
                 .map(this::mapToResponse)
                 .toList();
     }
+
     @Override
     public RepasResponseDTO getRepasById(Long id) {
 
@@ -83,6 +84,7 @@ public class RepasServiceImpl implements RepasService {
         return repasRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Repas non trouvé"));
     }
+
     @Override
     public RepasResponseDTO updateRepas(Long id, RepasRequestDTO request) {
 

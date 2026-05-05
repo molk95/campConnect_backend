@@ -1,5 +1,4 @@
 package com.esprit.campconnect.Auth.Security;
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -18,6 +17,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 @Service
+
 public class JwtService {
 
     @Value("${app.jwt.secret}")
@@ -99,7 +99,7 @@ public class JwtService {
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-        return generateToken(extraClaims, userDetails, jwtExpiration);
+        return generateToken(extraClaims, userDetails, JWT_EXPIRATION);
     }
 
     private String generateToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
