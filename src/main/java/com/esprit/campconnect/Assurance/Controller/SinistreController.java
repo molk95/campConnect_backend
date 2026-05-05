@@ -46,4 +46,11 @@ public class SinistreController {
     public void delete(@PathVariable Long id) {
         sinistreService.remove(id);
     }
+
+    @PostMapping("/add/reclamation/{souscriptionId}/{reclamationId}")
+    public Sinistre addFromReclamation(@PathVariable Long souscriptionId,
+                                       @PathVariable Long reclamationId,
+                                       @RequestBody Sinistre sinistre) {
+        return sinistreService.addFromReclamation(souscriptionId, reclamationId, sinistre);
+    }
 }

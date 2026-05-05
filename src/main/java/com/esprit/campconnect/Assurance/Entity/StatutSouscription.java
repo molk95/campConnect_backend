@@ -5,5 +5,6 @@ public enum StatutSouscription {
     ACTIVE,
     EXPIREE,
     ANNULEE,
-    SUSPENDUE
+    SUSPENDUE,
+    REFUSEE
 }

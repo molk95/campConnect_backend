@@ -1,7 +1,9 @@
 package com.esprit.campconnect.Assurance.Entity;
 
 
+import com.esprit.campconnect.Reclamation.Entity.Reclamation;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -45,4 +47,9 @@ public class Sinistre {
 
     @OneToMany(mappedBy = "sinistre", cascade = CascadeType.ALL, orphanRemoval = true)
     List<DocumentAssurance> documents;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reclamation_id", nullable = true)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    Reclamation reclamation;
 }

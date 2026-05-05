@@ -24,6 +24,8 @@ public class Garantie {
     double plafond;
     double franchise;
 
+    double tauxRemboursement;
+
     @ManyToOne
     @JoinColumn(name = "assurance_id")
     @JsonIgnore
