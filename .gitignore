@@ -12,7 +12,7 @@ target/
 .settings
 .springBeans
 .sts4-cache
-
+src/main/resources/env
 ### IntelliJ IDEA ###
 .idea
 *.iws
@@ -36,4 +36,4 @@ build/
 .env
 .env.*
 !.env.example
-src/main/resources/application.properties
+src/main/resources/application.propertiessrc/main/resources/env 

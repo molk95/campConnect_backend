@@ -1,60 +1,47 @@
 package com.esprit.campconnect.Restauration.Controller;
-
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.esprit.campconnect.Restauration.DTO.CommandeRequestDTO;
 import com.esprit.campconnect.Restauration.Entity.CommandeRepas;
 import com.esprit.campconnect.Restauration.Enum.StatutCommandeRepas;
 import com.esprit.campconnect.Restauration.Service.CommandeRepasService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/commandes-repas")
+@RequestMapping("/api/commandes")
 @CrossOrigin("*")
+@RequiredArgsConstructor
 public class CommandeRepasController {
 
-    private final CommandeRepasService commandeRepasService;
+    private final CommandeRepasService commandeService;
 
-    public CommandeRepasController(CommandeRepasService commandeRepasService) {
-        this.commandeRepasService = commandeRepasService;
-    }
-
+    @PreAuthorize("hasRole('CLIENT')")
     @PostMapping
-    public CommandeRepas create(@RequestBody CommandeRepas commandeRepas) {
-        return commandeRepasService.createCommande(commandeRepas);
+    public CommandeRepas create(@RequestBody CommandeRequestDTO request) {
+        return commandeService.createCommande(request);
     }
 
     @GetMapping
     public List<CommandeRepas> getAll() {
-        return commandeRepasService.getAllCommandes();
+        return commandeService.getAll();
     }
 
     @GetMapping("/{id}")
     public CommandeRepas getById(@PathVariable Long id) {
-        return commandeRepasService.getCommandeById(id);
+        return commandeService.getById(id);
+    }
+
+    @PutMapping("/{id}/statut")
+    public CommandeRepas updateStatus(
+            @PathVariable Long id,
+            @RequestParam StatutCommandeRepas statut) {
+        return commandeService.updateStatus(id, statut);
     }
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
-        commandeRepasService.deleteCommande(id);
-    }
-
-    @PostMapping("/{commandeId}/lignes")
-    public CommandeRepas ajouterLigne(
-            @PathVariable Long commandeId,
-            @RequestParam Long repasId,
-            @RequestParam int quantite) {
-        return commandeRepasService.ajouterLigne(commandeId, repasId, quantite);
-    }
-
-    @PutMapping("/{commandeId}/statut")
-    public CommandeRepas changerStatut(
-            @PathVariable Long commandeId,
-            @RequestParam StatutCommandeRepas statut) {
-        return commandeRepasService.changerStatut(commandeId, statut);
-    }
-
-    @GetMapping("/utilisateur/{utilisateurId}")
-    public List<CommandeRepas> getByUtilisateur(@PathVariable Long utilisateurId) {
-        return commandeRepasService.getCommandesByUtilisateur(utilisateurId);
+        commandeService.delete(id);
     }
 }

@@ -18,24 +18,15 @@ public class MailServiceImp implements IMailService {
     @Override
     public void sendMail(String to, String subject, String body) {
         System.out.println("📧 Début envoi mail");
-        System.out.println("📧 From: " + fromEmail);
-        System.out.println("📧 To: " + to);
-        System.out.println("📧 Subject: " + subject);
 
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body);
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(body);
 
-            mailSender.send(message);
+        mailSender.send(message);
 
-            System.out.println("✅ Mail envoyé avec succès");
-        } catch (Exception e) {
-            System.out.println("❌ Erreur envoi mail: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
+        System.out.println("✅ Mail envoyé avec succès");
     }
 }
