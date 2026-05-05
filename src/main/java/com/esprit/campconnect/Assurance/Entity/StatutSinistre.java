@@ -1,9 +1,9 @@
 package com.esprit.campconnect.Assurance.Entity;
 
 public enum StatutSinistre {
-    DECLARE,
+    EN_ATTENTE,
     EN_COURS,
     ACCEPTE,
-    REJETE,
-    INDEMNISE
+    REFUSE,
+    REMBOURSE
 }

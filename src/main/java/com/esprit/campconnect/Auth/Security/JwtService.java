@@ -84,9 +84,8 @@ public class JwtService {
         claims.put("role", role);
         claims.put("tokenType", "TEMP_2FA");
 
-        // ✅ Ajouter userId AVANT le return
-        if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur) {
-            Long userId = ((com.esprit.campconnect.User.Entity.Utilisateur) userDetails).getId();
+        if (userDetails instanceof com.esprit.campconnect.User.Entity.Utilisateur utilisateur) {
+            Long userId = utilisateur.getId();
             if (userId != null) {
                 claims.put("userId", userId);
             }
@@ -97,10 +96,6 @@ public class JwtService {
 
     public void addUserIdToClaims(Map<String, Object> claims, Long userId) {
         claims.put("userId", userId);
-    }
-
-    public Long extractUserId(String token) {
-        return extractClaim(token, claims -> claims.get("userId", Long.class));
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
