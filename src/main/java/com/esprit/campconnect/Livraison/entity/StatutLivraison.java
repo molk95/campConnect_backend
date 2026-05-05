@@ -5,5 +5,6 @@ public enum StatutLivraison {
     EN_COURS,
     LIVREE,
     ECHOUEE,
-    RETOURNEE
+    RETOURNEE,
+    ANNULEE
 }

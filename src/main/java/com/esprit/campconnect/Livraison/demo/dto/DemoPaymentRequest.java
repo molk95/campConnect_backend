@@ -1,20 +1,18 @@
-package com.esprit.campconnect.Livraison.dto;
+package com.esprit.campconnect.Livraison.demo.dto;
 
 import com.esprit.campconnect.Livraison.entity.TypeCommandeLivraison;
 import lombok.*;
-import lombok.experimental.FieldDefaults;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@ToString
-@FieldDefaults(level = AccessLevel.PRIVATE)
-public class LivraisonCreateRequest {
+public class DemoPaymentRequest {
     Long commandeId;
     TypeCommandeLivraison typeCommande;
+    Double total;
     String adresseLivraison;
-    String commentaire;
+    String noteLivraison;
 
     Double latitudeLivraison;
     Double longitudeLivraison;
