@@ -22,7 +22,8 @@ public class Assurance {
     Long id;
 
     String titre;
-    String description;
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
     @Enumerated(EnumType.STRING)
     TypeAssurance typeAssurance;
@@ -30,7 +31,8 @@ public class Assurance {
     double montantCouverture;
     double prime;
     int dureeValidite;
-    String conditionsGenerales;
+    @Column(name = "conditions_generales", columnDefinition = "TEXT")
+    private String conditionsGenerales;
     boolean active;
 
     @OneToMany(mappedBy = "assurance", cascade = CascadeType.ALL, orphanRemoval = true)
