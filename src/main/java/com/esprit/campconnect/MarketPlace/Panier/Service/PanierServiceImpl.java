@@ -1,5 +1,8 @@
 package com.esprit.campconnect.MarketPlace.Panier.Service;
 
+import com.esprit.campconnect.Mail.Service.IMailService;
+import com.esprit.campconnect.MarketPlace.Commande.Repository.CommandeRepository;
+import com.esprit.campconnect.MarketPlace.DetailPanier.Repository.DetailPanierRepository;
 import com.esprit.campconnect.MarketPlace.Panier.Entity.EtatPanier;
 import com.esprit.campconnect.MarketPlace.Panier.Entity.Panier;
 import com.esprit.campconnect.MarketPlace.Panier.Repository.PanierRepository;
@@ -15,11 +18,54 @@ public class PanierServiceImpl implements PanierService {
 
     private final PanierRepository panierRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final CommandeRepository commandeRepository;
+    private final DetailPanierRepository detailPanierRepository;
+    private final IMailService mailService;
 
     public PanierServiceImpl(PanierRepository panierRepository,
-                             UtilisateurRepository utilisateurRepository) {
+                             UtilisateurRepository utilisateurRepository,
+                             CommandeRepository commandeRepository,
+                             DetailPanierRepository detailPanierRepository,
+                             IMailService mailService) {
         this.panierRepository = panierRepository;
         this.utilisateurRepository = utilisateurRepository;
+        this.commandeRepository = commandeRepository;
+        this.detailPanierRepository = detailPanierRepository;
+        this.mailService = mailService;
+    }
+
+
+    @Override
+    public String envoyerCouponPremiereCommande(Long userId) {
+        boolean premiereCommande = !commandeRepository.existsByUtilisateur_Id(userId);
+
+        if (!premiereCommande) {
+            throw new RuntimeException("Coupon valable uniquement pour la première commande.");
+        }
+
+        Utilisateur user = utilisateurRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable."));
+
+        Panier panier = getOrCreatePanierEnCours(userId);
+
+        double total = detailPanierRepository.findByPanierIdPanier(panier.getIdPanier())
+                .stream()
+                .mapToDouble(detail -> detail.getPrix() * detail.getQuantite())
+                .sum();
+
+        String code = total > 200 ? "CAMP30" : "CAMP15";
+
+        String message = "Bonjour,\n\n"
+                + "Votre coupon première commande est : " + code + "\n\n"
+                + "Merci.";
+
+        mailService.sendMail(
+                user.getEmail(),
+                "Votre coupon CampConnect",
+                message
+        );
+
+        return code;
     }
 
     @Override
