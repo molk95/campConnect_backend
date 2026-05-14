@@ -30,4 +30,6 @@ public interface DetailPanierRepository extends JpaRepository<DetailPanier, Long
             Long idPanier,
             Long idProduit
     );
+
+
 }

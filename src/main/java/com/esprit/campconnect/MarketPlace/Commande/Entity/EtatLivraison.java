@@ -1,10 +1,9 @@
 package com.esprit.campconnect.MarketPlace.Commande.Entity;
 
-public enum StatutCommande {
+public enum EtatLivraison {
     EN_ATTENTE,
-    VALIDEE,
-    PAYEE,
-    LIVREE,
+    EN_PREPARATION,
     EN_COURS,
+    LIVREE,
     ANNULEE
 }

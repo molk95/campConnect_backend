@@ -2,9 +2,14 @@ package com.esprit.campconnect.MarketPlace.Commande.Entity;
 
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDate;
 
+
+@Getter
+@Setter
 @Entity
 @Table(name = "commande")
 public class Commande {
@@ -18,6 +23,9 @@ public class Commande {
     @Enumerated(EnumType.STRING)
     private StatutCommande statut;
 
+    @Enumerated(EnumType.STRING)
+    private EtatLivraison etatLivraison;
+
     private double totalCommande;
 
     @ManyToOne
@@ -25,45 +33,5 @@ public class Commande {
     private Utilisateur utilisateur;
 
     public Commande() {
-    }
-
-    public Long getIdCommande() {
-        return idCommande;
-    }
-
-    public void setIdCommande(Long idCommande) {
-        this.idCommande = idCommande;
-    }
-
-    public LocalDate getDateCommande() {
-        return dateCommande;
-    }
-
-    public void setDateCommande(LocalDate dateCommande) {
-        this.dateCommande = dateCommande;
-    }
-
-    public StatutCommande getStatut() {
-        return statut;
-    }
-
-    public void setStatut(StatutCommande statut) {
-        this.statut = statut;
-    }
-
-    public double getTotalCommande() {
-        return totalCommande;
-    }
-
-    public void setTotalCommande(double totalCommande) {
-        this.totalCommande = totalCommande;
-    }
-
-    public Utilisateur getUtilisateur() {
-        return utilisateur;
-    }
-
-    public void setUtilisateur(Utilisateur utilisateur) {
-        this.utilisateur = utilisateur;
     }
 }

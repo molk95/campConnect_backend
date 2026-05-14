@@ -7,12 +7,16 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+@Repository
+public interface CommandeRepository extends JpaRepository<Commande, Long> {
 
-    @Repository
-    public interface CommandeRepository extends JpaRepository<Commande, Long> {
+    List<Commande> findByUtilisateur_Id(Long utilisateurId);
 
-        List<Commande> findByUtilisateurId(Long utilisateurId);
+    List<Commande> findByUtilisateur_IdOrderByDateCommandeDescIdCommandeDesc(Long utilisateurId);
 
-        List<Commande> findByStatut(StatutCommande statut);
+    List<Commande> findByUtilisateur_EmailOrderByDateCommandeDescIdCommandeDesc(String email);
 
+    List<Commande> findByStatut(StatutCommande statut);
+
+    boolean existsByUtilisateur_Id(Long utilisateurId);
 }

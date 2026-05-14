@@ -42,19 +42,30 @@ public class ProduitServiceImpl implements ProduitService {
         existingProduit.setNom(produit.getNom());
         existingProduit.setDescription(produit.getDescription());
         existingProduit.setPrix(produit.getPrix());
-        existingProduit.setImages(produit.getImages());
         existingProduit.setCategorie(produit.getCategorie());
         existingProduit.setActive(produit.isActive());
+        existingProduit.setStock(produit.getStock());
+
+        // Garde l'ancienne image si aucune nouvelle image n'est envoyée
+        if (produit.getImages() != null && !produit.getImages().isEmpty()) {
+            existingProduit.setImages(produit.getImages());
+        }
+
+        if (existingProduit.getStocks() == null) {
+            existingProduit.setStocks(new ArrayList<>());
+        }
 
         existingProduit.getStocks().clear();
 
-        if (produit.getStocks() != null) {
+        if (produit.getStocks() != null && !produit.getStocks().isEmpty()) {
             for (StockProduit stock : produit.getStocks()) {
                 StockProduit nouveauStock = new StockProduit();
+
                 nouveauStock.setTaille(stock.getTaille());
                 nouveauStock.setPointure(stock.getPointure());
                 nouveauStock.setStock(stock.getStock());
                 nouveauStock.setProduit(existingProduit);
+
                 existingProduit.getStocks().add(nouveauStock);
             }
         }
@@ -62,6 +73,17 @@ public class ProduitServiceImpl implements ProduitService {
         validerStocks(existingProduit);
 
         return produitRepository.save(existingProduit);
+    }
+
+
+    @Override
+    public Produit modifierStockGlobal(Long idProduit, int stock) {
+        Produit produit = produitRepository.findById(idProduit)
+                .orElseThrow(() -> new RuntimeException("Produit introuvable"));
+
+        produit.setStock(stock);
+
+        return produitRepository.save(produit);
     }
 
     @Override
@@ -99,35 +121,66 @@ public class ProduitServiceImpl implements ProduitService {
 
         validerStocks(produit);
     }
+
     private void validerStocks(Produit produit) {
 
         if (produit.getCategorie() == Categorie.VETEMENT) {
+            if (produit.getStocks() == null || produit.getStocks().isEmpty()) {
+                throw new RuntimeException("Au moins une taille avec stock est obligatoire pour un vêtement");
+            }
+
+            int total = 0;
+
             for (StockProduit stock : produit.getStocks()) {
                 if (stock.getTaille() == null || stock.getTaille().isBlank()) {
                     throw new RuntimeException("La taille est obligatoire pour un vêtement");
                 }
+
+                if (stock.getStock() <= 0) {
+                    throw new RuntimeException("Le stock doit être supérieur à 0 pour chaque taille");
+                }
+
                 stock.setPointure(null);
+                stock.setProduit(produit);
+                total += stock.getStock();
             }
+
+            produit.setStock(total);
+            return;
         }
 
         if (produit.getCategorie() == Categorie.CHAUSSURE) {
+            if (produit.getStocks() == null || produit.getStocks().isEmpty()) {
+                throw new RuntimeException("Au moins une pointure avec stock est obligatoire pour une chaussure");
+            }
+
+            int total = 0;
+
             for (StockProduit stock : produit.getStocks()) {
                 if (stock.getPointure() == null) {
                     throw new RuntimeException("La pointure est obligatoire pour une chaussure");
                 }
+
+                if (stock.getStock() <= 0) {
+                    throw new RuntimeException("Le stock doit être supérieur à 0 pour chaque pointure");
+                }
+
                 stock.setTaille(null);
-            }
-        }
-
-        // 🔥 AJOUT ICI : calcul du stock total
-        int total = 0;
-
-        if (produit.getStocks() != null) {
-            for (StockProduit stock : produit.getStocks()) {
+                stock.setProduit(produit);
                 total += stock.getStock();
             }
+
+            produit.setStock(total);
+            return;
         }
 
-        produit.setStock(total); // ✅ STOCK GLOBAL
+        // Catégories simples
+        if (produit.getStocks() != null) {
+            produit.getStocks().clear();
+        }
+
+        if (produit.getStock() <= 0) {
+            throw new RuntimeException("Le stock est obligatoire pour cette catégorie");
+        }
     }
 }
