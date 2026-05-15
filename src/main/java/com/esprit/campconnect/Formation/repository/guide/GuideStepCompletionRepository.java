@@ -14,6 +14,13 @@ public interface GuideStepCompletionRepository extends JpaRepository<GuideStepCo
     long countByProgress_Id(Long progressId);
 
     @Query("""
+            SELECT gsc.step.id
+            FROM GuideStepCompletion gsc
+            WHERE gsc.progress.id = :progressId
+            """)
+    List<Long> findCompletedStepIdsByProgressId(@Param("progressId") Long progressId);
+
+    @Query("""
             SELECT FUNCTION('DATE', gsc.completedAt) AS metricDate,
                    COUNT(gsc.id) AS totalCount
             FROM GuideStepCompletion gsc

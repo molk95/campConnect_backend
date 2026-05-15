@@ -24,6 +24,12 @@ public class GuideStep {
     @Column(nullable = false)
     private Integer stepOrder;
 
+    @Column
+    private Integer chapterOrder;
+
+    @Column(length = 200)
+    private String chapterTitle;
+
     @Column(nullable = false, length = 200)
     private String titre;
 
@@ -59,6 +65,22 @@ public class GuideStep {
 
     public void setStepOrder(Integer stepOrder) {
         this.stepOrder = stepOrder;
+    }
+
+    public Integer getChapterOrder() {
+        return chapterOrder;
+    }
+
+    public void setChapterOrder(Integer chapterOrder) {
+        this.chapterOrder = chapterOrder;
+    }
+
+    public String getChapterTitle() {
+        return chapterTitle;
+    }
+
+    public void setChapterTitle(String chapterTitle) {
+        this.chapterTitle = chapterTitle;
     }
 
     public String getTitre() {

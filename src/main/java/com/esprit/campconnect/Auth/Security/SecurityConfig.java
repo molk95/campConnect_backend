@@ -37,6 +37,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/publications/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/commentaires/**").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/publications/*/like", "/publications/*/view").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/publications/*/like").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/commentaires/*/like").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/commentaires/*/like").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(
                                 "/user/**",
@@ -59,13 +65,13 @@ public class SecurityConfig {
                                 "/paniers/**",
                                 "/commandes/**",
                                 "/details-commandes/**",
+                                "/formations/**",
                                  "/commentaires",
                                 "/uploads/**",
                                 "/forums/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/publications/forum/**").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMINISTRATEUR")
+                        .requestMatchers("/admin/**").hasAuthority("ADMINISTRATEUR")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->

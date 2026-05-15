@@ -2,16 +2,23 @@ package com.esprit.campconnect.Formation.service.guide;
 
 import com.esprit.campconnect.Formation.dto.guide.GuideCreateRequestDto;
 import com.esprit.campconnect.Formation.dto.guide.GuideProgressResponseDto;
+import com.esprit.campconnect.Formation.dto.guide.GuideQuizQuestionResponseDto;
+import com.esprit.campconnect.Formation.dto.guide.GuideQuizQuestionUpsertDto;
+import com.esprit.campconnect.Formation.dto.guide.GuideQuizResponseDto;
+import com.esprit.campconnect.Formation.dto.guide.GuideQuizSubmitRequestDto;
+import com.esprit.campconnect.Formation.dto.guide.GuideQuizUpsertRequestDto;
 import com.esprit.campconnect.Formation.dto.guide.GuideResponseDto;
 import com.esprit.campconnect.Formation.dto.guide.GuideStepCreateRequestDto;
 import com.esprit.campconnect.Formation.dto.guide.GuideStepResponseDto;
 import com.esprit.campconnect.Formation.entity.Formation;
+import com.esprit.campconnect.Formation.entity.FormationQuizQuestion;
 import com.esprit.campconnect.Formation.entity.guide.GuideInteractif;
 import com.esprit.campconnect.Formation.entity.guide.GuideProgress;
 import com.esprit.campconnect.Formation.entity.guide.GuideStep;
 import com.esprit.campconnect.Formation.entity.guide.GuideStepCompletion;
 import com.esprit.campconnect.Formation.entity.guide.GuideStepMediaType;
 import com.esprit.campconnect.Formation.entity.guide.UserReward;
+import com.esprit.campconnect.Formation.repository.FormationQuizQuestionRepository;
 import com.esprit.campconnect.Formation.repository.FormationRepository;
 import com.esprit.campconnect.Formation.repository.guide.GuideInteractifRepository;
 import com.esprit.campconnect.Formation.repository.guide.GuideProgressRepository;
@@ -27,7 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -45,6 +55,7 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
     private final GuideProgressRepository guideProgressRepository;
     private final GuideStepCompletionRepository guideStepCompletionRepository;
     private final UserRewardRepository userRewardRepository;
+    private final FormationQuizQuestionRepository formationQuizQuestionRepository;
 
     @Override
     @Transactional
@@ -77,6 +88,21 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
 
     @Override
     @Transactional
+    public GuideResponseDto updateGuideByFormation(Long formationId, GuideCreateRequestDto request) {
+        GuideInteractif guide = guideInteractifRepository.findByFormation_Id(formationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Guide interactif introuvable pour cette formation"));
+
+        guide.setTitre(request.getTitre().trim());
+        guide.setDescription(request.getDescription().trim());
+        guide.setRecompenseFinale(request.getRecompenseFinale().trim());
+
+        GuideInteractif saved = guideInteractifRepository.save(guide);
+        int stepsCount = guideStepRepository.findByGuide_IdOrderByStepOrderAsc(saved.getId()).size();
+        return toGuideResponse(saved, stepsCount);
+    }
+
+    @Override
+    @Transactional
     public GuideStepResponseDto addStep(Long guideId, GuideStepCreateRequestDto request) {
         GuideInteractif guide = guideInteractifRepository.findById(guideId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Guide interactif introuvable"));
@@ -88,6 +114,8 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
         GuideStep step = new GuideStep();
         step.setGuide(guide);
         step.setStepOrder(request.getStepOrder());
+        step.setChapterOrder(resolveChapterOrder(request.getChapterOrder()));
+        step.setChapterTitle(resolveChapterTitle(request.getChapterTitle(), request.getChapterOrder()));
         step.setTitre(request.getTitre().trim());
         step.setDescription(request.getDescription().trim());
         step.setMediaType(request.getMediaType() != null ? request.getMediaType() : GuideStepMediaType.NONE);
@@ -96,6 +124,38 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
 
         GuideStep saved = guideStepRepository.save(step);
         return toStepResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public GuideStepResponseDto updateStep(Long guideId, Long stepId, GuideStepCreateRequestDto request) {
+        GuideStep step = guideStepRepository.findByIdAndGuide_Id(stepId, guideId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Etape introuvable pour ce guide"));
+
+        if (!step.getStepOrder().equals(request.getStepOrder())
+                && guideStepRepository.existsByGuide_IdAndStepOrder(guideId, request.getStepOrder())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cet ordre d'etape existe deja pour ce guide");
+        }
+
+        step.setStepOrder(request.getStepOrder());
+        step.setChapterOrder(resolveChapterOrder(request.getChapterOrder()));
+        step.setChapterTitle(resolveChapterTitle(request.getChapterTitle(), request.getChapterOrder()));
+        step.setTitre(request.getTitre().trim());
+        step.setDescription(request.getDescription().trim());
+        step.setMediaType(request.getMediaType() != null ? request.getMediaType() : GuideStepMediaType.NONE);
+        step.setMediaUrl(normalizeBlank(request.getMediaUrl()));
+        step.setChecklist(normalizeBlank(request.getChecklist()));
+
+        GuideStep saved = guideStepRepository.save(step);
+        return toStepResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteStep(Long guideId, Long stepId) {
+        GuideStep step = guideStepRepository.findByIdAndGuide_Id(stepId, guideId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Etape introuvable pour ce guide"));
+        guideStepRepository.delete(step);
     }
 
     @Override
@@ -108,6 +168,25 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
         return guideStepRepository.findByGuide_IdOrderByStepOrderAsc(guideId).stream()
                 .map(this::toStepResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public GuideProgressResponseDto startGuide(Long guideId, Long utilisateurId) {
+        GuideInteractif guide = guideInteractifRepository.findById(guideId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Guide interactif introuvable"));
+
+        Utilisateur user = utilisateurRepository.findById(utilisateurId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable"));
+
+        List<GuideStep> steps = guideStepRepository.findByGuide_IdOrderByStepOrderAsc(guideId);
+        GuideProgress progress = getOrCreateProgress(guide, user, steps.size());
+
+        progress.setTotalSteps(steps.size());
+        progress.setLastUpdated(LocalDateTime.now());
+        guideProgressRepository.save(progress);
+
+        return buildProgressResponse(progress, guide, steps);
     }
 
     @Override
@@ -175,6 +254,11 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
             dto.setPointsAwarded(0);
             dto.setBonusTemplate(null);
             dto.setNextStepId(steps.isEmpty() ? null : steps.get(0).getId());
+            dto.setCompletedStepIds(List.of());
+            dto.setMinimumQuizScore(resolveMinimumScore(guide.getFormation().getQuizMinimumScore()));
+            dto.setQuizScore(null);
+            dto.setQuizPassed(false);
+            dto.setQuizAttemptedAt(null);
             dto.setRewardUnlockedAt(null);
             dto.setLastUpdated(null);
             return dto;
@@ -184,6 +268,131 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
         updateProgress(progress, (int) completedCount, steps.size());
         guideProgressRepository.save(progress);
         ensureRewardAtCompletion(progress, guide);
+
+        return buildProgressResponse(progress, guide, steps);
+    }
+
+    @Override
+    @Transactional
+    public GuideQuizResponseDto upsertFormationQuiz(Long formationId, GuideQuizUpsertRequestDto request) {
+        Formation formation = formationRepository.findById(formationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Formation introuvable"));
+
+        formation.setQuizTitle(resolveQuizTitle(request.getQuizTitle()));
+        formation.setQuizMinimumScore(resolveMinimumScore(request.getMinimumScore()));
+        formationRepository.save(formation);
+
+        formationQuizQuestionRepository.deleteByFormation_Id(formationId);
+
+        List<GuideQuizQuestionUpsertDto> payloadQuestions = request.getQuestions() != null
+                ? request.getQuestions()
+                : List.of();
+
+        List<Integer> questionOrders = new ArrayList<>();
+        for (GuideQuizQuestionUpsertDto payloadQuestion : payloadQuestions) {
+            if (payloadQuestion.getQuestionOrder() == null || payloadQuestion.getQuestionOrder() <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chaque question doit avoir un ordre > 0");
+            }
+            if (questionOrders.contains(payloadQuestion.getQuestionOrder())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Ordre de question duplique dans le quiz");
+            }
+            questionOrders.add(payloadQuestion.getQuestionOrder());
+
+            FormationQuizQuestion question = new FormationQuizQuestion();
+            question.setFormation(formation);
+            question.setQuestionOrder(payloadQuestion.getQuestionOrder());
+            question.setQuestion(payloadQuestion.getQuestion().trim());
+            question.setOptionA(payloadQuestion.getOptionA().trim());
+            question.setOptionB(payloadQuestion.getOptionB().trim());
+            question.setOptionC(payloadQuestion.getOptionC().trim());
+            question.setOptionD(payloadQuestion.getOptionD().trim());
+            question.setCorrectOption(normalizeOption(payloadQuestion.getCorrectOption()));
+            question.setExplanation(normalizeBlank(payloadQuestion.getExplanation()));
+            formationQuizQuestionRepository.save(question);
+        }
+
+        return getFormationQuiz(formationId, true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GuideQuizResponseDto getFormationQuiz(Long formationId, boolean includeAnswers) {
+        Formation formation = formationRepository.findById(formationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Formation introuvable"));
+
+        List<FormationQuizQuestion> questions = formationQuizQuestionRepository.findByFormation_IdOrderByQuestionOrderAsc(formationId);
+
+        GuideQuizResponseDto dto = new GuideQuizResponseDto();
+        dto.setFormationId(formationId);
+        dto.setQuizTitle(resolveQuizTitle(formation.getQuizTitle()));
+        dto.setMinimumScore(resolveMinimumScore(formation.getQuizMinimumScore()));
+        dto.setQuestionCount(questions.size());
+
+        dto.setQuestions(questions.stream().map(question -> {
+            GuideQuizQuestionResponseDto questionDto = new GuideQuizQuestionResponseDto();
+            questionDto.setId(question.getId());
+            questionDto.setQuestionOrder(question.getQuestionOrder());
+            questionDto.setQuestion(question.getQuestion());
+            questionDto.setOptionA(question.getOptionA());
+            questionDto.setOptionB(question.getOptionB());
+            questionDto.setOptionC(question.getOptionC());
+            questionDto.setOptionD(question.getOptionD());
+            questionDto.setCorrectOption(includeAnswers ? question.getCorrectOption() : null);
+            questionDto.setExplanation(question.getExplanation());
+            return questionDto;
+        }).toList());
+
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public GuideProgressResponseDto submitQuiz(Long guideId, Long utilisateurId, GuideQuizSubmitRequestDto request) {
+        GuideInteractif guide = guideInteractifRepository.findById(guideId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Guide interactif introuvable"));
+
+        Utilisateur user = utilisateurRepository.findById(utilisateurId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable"));
+
+        Formation formation = guide.getFormation();
+        List<FormationQuizQuestion> questions =
+                formationQuizQuestionRepository.findByFormation_IdOrderByQuestionOrderAsc(formation.getId());
+        if (questions.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Aucun quiz configure pour cette formation");
+        }
+
+        List<GuideStep> steps = guideStepRepository.findByGuide_IdOrderByStepOrderAsc(guideId);
+        GuideProgress progress = getOrCreateProgress(guide, user, steps.size());
+
+        long completedCount = guideStepCompletionRepository.countByProgress_Id(progress.getId());
+        updateProgress(progress, (int) completedCount, steps.size());
+        if (!Boolean.TRUE.equals(progress.getCompleted())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Terminez toutes les etapes avant de soumettre le quiz");
+        }
+
+        Map<Long, String> answers = request.getAnswersByQuestionId();
+        int correctAnswers = 0;
+        for (FormationQuizQuestion question : questions) {
+            String userAnswer = answers != null ? answers.get(question.getId()) : null;
+            if (userAnswer == null) {
+                continue;
+            }
+
+            if (normalizeOption(userAnswer).equals(question.getCorrectOption())) {
+                correctAnswers++;
+            }
+        }
+
+        int totalQuestions = questions.size();
+        int score = totalQuestions == 0 ? 0 : (int) Math.round((correctAnswers * 100.0) / totalQuestions);
+        int minimumScore = resolveMinimumScore(formation.getQuizMinimumScore());
+        boolean passed = score >= minimumScore;
+
+        progress.setQuizScore(score);
+        progress.setQuizPassed(passed);
+        progress.setQuizAttemptedAt(LocalDateTime.now());
+        progress.setLastUpdated(LocalDateTime.now());
+        guideProgressRepository.save(progress);
 
         return buildProgressResponse(progress, guide, steps);
     }
@@ -199,6 +408,7 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
                     newProgress.setProgressPercent(0D);
                     newProgress.setCompleted(false);
                     newProgress.setRewardUnlocked(false);
+                    newProgress.setQuizPassed(false);
                     newProgress.setLastUpdated(LocalDateTime.now());
                     return guideProgressRepository.save(newProgress);
                 });
@@ -243,6 +453,10 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
         dto.setCompleted(progress.getCompleted());
         dto.setRewardUnlocked(progress.getRewardUnlocked());
         dto.setRewardUnlockedAt(progress.getRewardUnlockedAt());
+        dto.setMinimumQuizScore(resolveMinimumScore(guide.getFormation().getQuizMinimumScore()));
+        dto.setQuizScore(progress.getQuizScore());
+        dto.setQuizPassed(progress.getQuizPassed());
+        dto.setQuizAttemptedAt(progress.getQuizAttemptedAt());
         dto.setLastUpdated(progress.getLastUpdated());
 
         if (Boolean.TRUE.equals(progress.getRewardUnlocked())) {
@@ -250,6 +464,7 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
         }
         enrichWithReward(dto, guide.getId(), progress.getUtilisateur().getId());
 
+        dto.setCompletedStepIds(guideStepCompletionRepository.findCompletedStepIdsByProgressId(progress.getId()));
         dto.setNextStepId(resolveNextStepId(progress.getId(), steps));
         return dto;
     }
@@ -276,6 +491,8 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
     private GuideStepResponseDto toStepResponse(GuideStep step) {
         GuideStepResponseDto dto = new GuideStepResponseDto();
         dto.setId(step.getId());
+        dto.setChapterOrder(resolveChapterOrder(step.getChapterOrder()));
+        dto.setChapterTitle(resolveChapterTitle(step.getChapterTitle(), step.getChapterOrder()));
         dto.setStepOrder(step.getStepOrder());
         dto.setTitre(step.getTitre());
         dto.setDescription(step.getDescription());
@@ -324,5 +541,49 @@ public class GuideInteractifServiceImpl implements GuideInteractifService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Integer resolveChapterOrder(Integer chapterOrder) {
+        if (chapterOrder == null || chapterOrder <= 0) {
+            return 1;
+        }
+        return chapterOrder;
+    }
+
+    private String resolveChapterTitle(String chapterTitle, Integer chapterOrder) {
+        String normalized = normalizeBlank(chapterTitle);
+        if (normalized != null) {
+            return normalized;
+        }
+        return "Chapitre " + resolveChapterOrder(chapterOrder);
+    }
+
+    private String resolveQuizTitle(String quizTitle) {
+        String normalized = normalizeBlank(quizTitle);
+        return normalized != null ? normalized : "Quiz final";
+    }
+
+    private Integer resolveMinimumScore(Integer minimumScore) {
+        if (minimumScore == null) {
+            return 70;
+        }
+        if (minimumScore < 0) {
+            return 0;
+        }
+        if (minimumScore > 100) {
+            return 100;
+        }
+        return minimumScore;
+    }
+
+    private String normalizeOption(String option) {
+        if (option == null) {
+            return "";
+        }
+        String normalized = option.trim().toUpperCase(Locale.ROOT);
+        if (normalized.length() == 1 && "ABCD".contains(normalized)) {
+            return normalized;
+        }
+        return "";
     }
 }

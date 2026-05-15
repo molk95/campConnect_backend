@@ -1,6 +1,8 @@
 package com.esprit.campconnect.Formation.dto.guide;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GuideProgressResponseDto {
 
@@ -16,6 +18,11 @@ public class GuideProgressResponseDto {
     private Integer pointsAwarded;
     private String bonusTemplate;
     private Long nextStepId;
+    private List<Long> completedStepIds = new ArrayList<>();
+    private Integer minimumQuizScore;
+    private Integer quizScore;
+    private Boolean quizPassed;
+    private LocalDateTime quizAttemptedAt;
     private LocalDateTime rewardUnlockedAt;
     private LocalDateTime lastUpdated;
 
@@ -116,6 +123,46 @@ public class GuideProgressResponseDto {
 
     public void setNextStepId(Long nextStepId) {
         this.nextStepId = nextStepId;
+    }
+
+    public List<Long> getCompletedStepIds() {
+        return completedStepIds;
+    }
+
+    public void setCompletedStepIds(List<Long> completedStepIds) {
+        this.completedStepIds = completedStepIds;
+    }
+
+    public Integer getMinimumQuizScore() {
+        return minimumQuizScore;
+    }
+
+    public void setMinimumQuizScore(Integer minimumQuizScore) {
+        this.minimumQuizScore = minimumQuizScore;
+    }
+
+    public Integer getQuizScore() {
+        return quizScore;
+    }
+
+    public void setQuizScore(Integer quizScore) {
+        this.quizScore = quizScore;
+    }
+
+    public Boolean getQuizPassed() {
+        return quizPassed;
+    }
+
+    public void setQuizPassed(Boolean quizPassed) {
+        this.quizPassed = quizPassed;
+    }
+
+    public LocalDateTime getQuizAttemptedAt() {
+        return quizAttemptedAt;
+    }
+
+    public void setQuizAttemptedAt(LocalDateTime quizAttemptedAt) {
+        this.quizAttemptedAt = quizAttemptedAt;
     }
 
     public LocalDateTime getRewardUnlockedAt() {

@@ -33,6 +33,8 @@ public interface FormationService {
 
     void delete(Long id);
 
+    Formation publish(Long id);
+
     void like(Long formationId, Long utilisateurId);
 
     long getLikeCount(Long formationId);

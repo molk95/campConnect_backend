@@ -36,6 +36,15 @@ public class Formation {
     @Column
     private Integer duration;
 
+    @Column(length = 8000)
+    private String objectifsText;
+
+    @Column(length = 200)
+    private String quizTitle;
+
+    @Column
+    private Integer quizMinimumScore;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guide_id", nullable = false)
     @JsonIgnore
@@ -54,6 +63,9 @@ public class Formation {
         }
         if (this.duration == null || this.duration <= 0) {
             this.duration = 60;
+        }
+        if (this.quizMinimumScore == null) {
+            this.quizMinimumScore = 70;
         }
     }
 
@@ -140,5 +152,29 @@ public class Formation {
 
     public void setGuide(Utilisateur guide) {
         this.guide = guide;
+    }
+
+    public String getObjectifsText() {
+        return objectifsText;
+    }
+
+    public void setObjectifsText(String objectifsText) {
+        this.objectifsText = objectifsText;
+    }
+
+    public String getQuizTitle() {
+        return quizTitle;
+    }
+
+    public void setQuizTitle(String quizTitle) {
+        this.quizTitle = quizTitle;
+    }
+
+    public Integer getQuizMinimumScore() {
+        return quizMinimumScore;
+    }
+
+    public void setQuizMinimumScore(Integer quizMinimumScore) {
+        this.quizMinimumScore = quizMinimumScore;
     }
 }

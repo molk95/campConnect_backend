@@ -12,6 +12,7 @@ public class FormationDetailsStatsDto {
     private double completionRate;
     private double averageProgress;
     private double averageQuizScore;
+    private double quizSuccessRate;
     private List<FormationViewsEvolutionPointDto> viewsEvolution = new ArrayList<>();
 
     public Long getFormationId() {
@@ -68,6 +69,14 @@ public class FormationDetailsStatsDto {
 
     public void setAverageQuizScore(double averageQuizScore) {
         this.averageQuizScore = averageQuizScore;
+    }
+
+    public double getQuizSuccessRate() {
+        return quizSuccessRate;
+    }
+
+    public void setQuizSuccessRate(double quizSuccessRate) {
+        this.quizSuccessRate = quizSuccessRate;
     }
 
     public List<FormationViewsEvolutionPointDto> getViewsEvolution() {

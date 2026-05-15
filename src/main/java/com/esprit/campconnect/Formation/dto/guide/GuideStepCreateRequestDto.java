@@ -10,6 +10,12 @@ public class GuideStepCreateRequestDto {
     @Positive(message = "L'ordre de l'etape doit etre > 0")
     private Integer stepOrder;
 
+    @Positive(message = "L'ordre du chapitre doit etre > 0")
+    private Integer chapterOrder;
+
+    @Size(max = 200, message = "Le titre du chapitre ne doit pas depasser 200 caracteres")
+    private String chapterTitle;
+
     @NotBlank(message = "Le titre de l'etape est obligatoire")
     @Size(max = 200, message = "Le titre de l'etape ne doit pas depasser 200 caracteres")
     private String titre;
@@ -35,6 +41,22 @@ public class GuideStepCreateRequestDto {
 
     public void setStepOrder(Integer stepOrder) {
         this.stepOrder = stepOrder;
+    }
+
+    public Integer getChapterOrder() {
+        return chapterOrder;
+    }
+
+    public void setChapterOrder(Integer chapterOrder) {
+        this.chapterOrder = chapterOrder;
+    }
+
+    public String getChapterTitle() {
+        return chapterTitle;
+    }
+
+    public void setChapterTitle(String chapterTitle) {
+        this.chapterTitle = chapterTitle;
     }
 
     public String getTitre() {

@@ -2,12 +2,15 @@ package com.esprit.campconnect.Formation.controller;
 
 import com.esprit.campconnect.Formation.dto.FormationRequestDto;
 import com.esprit.campconnect.Formation.dto.FormationResponseDto;
+import com.esprit.campconnect.Formation.dto.ai.FormationAiGenerateRequestDto;
+import com.esprit.campconnect.Formation.dto.ai.FormationAiGenerateResponseDto;
 import com.esprit.campconnect.Formation.dto.stats.FormationDetailsStatsDto;
 import com.esprit.campconnect.Formation.dto.stats.FormationGlobalStatsDto;
 import com.esprit.campconnect.Formation.entity.Formation;
 import com.esprit.campconnect.Formation.entity.FormationLevel;
 import com.esprit.campconnect.Formation.entity.FormationStatus;
 import com.esprit.campconnect.Formation.service.FormationService;
+import com.esprit.campconnect.Formation.service.ia.FormationIaService;
 import com.esprit.campconnect.Formation.service.stats.FormationStatsService;
 import com.esprit.campconnect.User.Entity.Role;
 import com.esprit.campconnect.User.Entity.Utilisateur;
@@ -34,6 +37,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -49,10 +53,14 @@ public class FormationController {
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("dateCreation", "titre", "status", "auteurNom");
 
     private final FormationService formationService;
+    private final FormationIaService formationIaService;
     private final FormationStatsService formationStatsService;
 
-    public FormationController(FormationService formationService, FormationStatsService formationStatsService) {
+    public FormationController(FormationService formationService,
+                               FormationIaService formationIaService,
+                               FormationStatsService formationStatsService) {
         this.formationService = formationService;
+        this.formationIaService = formationIaService;
         this.formationStatsService = formationStatsService;
     }
 
@@ -113,7 +121,23 @@ public class FormationController {
         return formationStatsService.getGlobalStats();
     }
 
-    @GetMapping("/{id}")
+    @PostMapping("/generate")
+    public FormationAiGenerateResponseDto generate(@Valid @RequestBody FormationAiGenerateRequestDto request,
+                                                   Authentication authentication) {
+        Utilisateur user = requireAuthenticatedUser(authentication);
+        assertGuideOrAdminRole(user);
+        return formationIaService.generateContent(request);
+    }
+
+    @PostMapping("/analyze")
+    public FormationAiGenerateResponseDto analyze(@Valid @RequestBody FormationAiGenerateRequestDto request,
+                                                  Authentication authentication) {
+        Utilisateur user = requireAuthenticatedUser(authentication);
+        assertGuideOrAdminRole(user);
+        return formationIaService.generateContent(request);
+    }
+
+    @GetMapping("/{id:\\d+}")
     public FormationResponseDto getById(@PathVariable Long id, Authentication authentication) {
         Formation formation = formationService.getById(id);
         Long currentUserId = getCurrentUserId(authentication);
@@ -140,14 +164,14 @@ public class FormationController {
                 .toList();
     }
 
-    @GetMapping("/{id}/stats")
+    @GetMapping("/{id:\\d+}/stats")
     public FormationDetailsStatsDto getByIdStats(@PathVariable Long id, Authentication authentication) {
         Utilisateur user = requireAuthenticatedUser(authentication);
         assertAdminRole(user);
         return formationStatsService.getFormationStats(id);
     }
 
-    @PostMapping
+    @PostMapping({"", "/add", "/create"})
     public FormationResponseDto create(@Valid @RequestBody FormationRequestDto request, Authentication authentication) {
         Utilisateur user = requireAuthenticatedUser(authentication);
         assertGuideOrAdminRole(user);
@@ -158,6 +182,9 @@ public class FormationController {
         formation.setLevel(request.getLevel() != null ? request.getLevel() : FormationLevel.BEGINNER);
         formation.setDuration(request.getDuration() != null ? request.getDuration() : 60);
         formation.setStatus(request.getStatus() != null ? request.getStatus() : FormationStatus.DRAFT);
+        formation.setObjectifsText(buildObjectifsText(request));
+        formation.setQuizTitle(normalizeBlank(request.getQuizTitle()));
+        formation.setQuizMinimumScore(resolveQuizMinimumScore(request.getQuizMinimumScore()));
         formation.setAuteurEmail(user.getEmail());
         formation.setAuteurNom(user.getNom());
         formation.setGuide(user);
@@ -166,7 +193,7 @@ public class FormationController {
         return toResponseDto(created, formationService.getLikeCount(created.getId()), false);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     public FormationResponseDto update(@PathVariable Long id,
                                        @Valid @RequestBody FormationRequestDto request,
                                        Authentication authentication) {
@@ -182,6 +209,9 @@ public class FormationController {
         toUpdate.setLevel(request.getLevel());
         toUpdate.setDuration(request.getDuration());
         toUpdate.setStatus(request.getStatus());
+        toUpdate.setObjectifsText(buildObjectifsText(request));
+        toUpdate.setQuizTitle(normalizeBlank(request.getQuizTitle()));
+        toUpdate.setQuizMinimumScore(resolveQuizMinimumScore(request.getQuizMinimumScore()));
 
         Formation updated = formationService.update(id, toUpdate);
         return toResponseDto(
@@ -191,7 +221,7 @@ public class FormationController {
         );
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     public void delete(@PathVariable Long id, Authentication authentication) {
         Utilisateur user = requireAuthenticatedUser(authentication);
         assertGuideOrAdminRole(user);
@@ -202,13 +232,29 @@ public class FormationController {
         formationService.delete(id);
     }
 
-    @PostMapping("/{id}/like")
+    @PostMapping("/{id:\\d+}/like")
     public FormationResponseDto like(@PathVariable Long id, Authentication authentication) {
         Utilisateur user = requireAuthenticatedUser(authentication);
         formationService.like(id, user.getId());
 
         Formation formation = formationService.getById(id);
         return toResponseDto(formation, formationService.getLikeCount(id), true);
+    }
+
+    @PostMapping("/{id:\\d+}/publish")
+    public FormationResponseDto publish(@PathVariable Long id, Authentication authentication) {
+        Utilisateur user = requireAuthenticatedUser(authentication);
+        assertGuideOrAdminRole(user);
+
+        Formation existing = formationService.getById(id);
+        assertOwnerOrAdmin(existing.getAuteurEmail(), user);
+
+        Formation published = formationService.publish(id);
+        return toResponseDto(
+                published,
+                formationService.getLikeCount(published.getId()),
+                formationService.isLikedByUser(published.getId(), user.getId())
+        );
     }
 
     private Utilisateur requireAuthenticatedUser(Authentication authentication) {
@@ -281,6 +327,61 @@ public class FormationController {
         dto.setAuteurNom(formation.getAuteurNom());
         dto.setLikeCount(likeCount);
         dto.setLikedByCurrentUser(likedByCurrentUser);
+        dto.setObjectifsText(formation.getObjectifsText());
+        dto.setObjectifs(parseObjectifs(formation.getObjectifsText()));
+        dto.setQuizTitle(formation.getQuizTitle());
+        dto.setQuizMinimumScore(resolveQuizMinimumScore(formation.getQuizMinimumScore()));
         return dto;
+    }
+
+    private String buildObjectifsText(FormationRequestDto request) {
+        if (request.getObjectifs() != null && !request.getObjectifs().isEmpty()) {
+            List<String> normalized = request.getObjectifs().stream()
+                    .map(this::normalizeBlank)
+                    .filter(value -> value != null)
+                    .toList();
+            if (!normalized.isEmpty()) {
+                return String.join("\n", normalized);
+            }
+        }
+
+        return normalizeBlank(request.getObjectifsText());
+    }
+
+    private List<String> parseObjectifs(String objectifsText) {
+        if (objectifsText == null || objectifsText.trim().isEmpty()) {
+            return List.of();
+        }
+
+        String[] lines = objectifsText.split("\\r?\\n");
+        List<String> result = new ArrayList<>();
+        for (String line : lines) {
+            String normalized = normalizeBlank(line);
+            if (normalized != null) {
+                result.add(normalized);
+            }
+        }
+        return result;
+    }
+
+    private Integer resolveQuizMinimumScore(Integer value) {
+        if (value == null) {
+            return 70;
+        }
+        if (value < 0) {
+            return 0;
+        }
+        if (value > 100) {
+            return 100;
+        }
+        return value;
+    }
+
+    private String normalizeBlank(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

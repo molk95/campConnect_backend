@@ -13,6 +13,8 @@ public class FormationGlobalStatsDto {
     private long guideCompletedCount;
     private long guideInProgressCount;
     private long guideNotStartedCount;
+    private double averageQuizScore;
+    private double quizSuccessRate;
 
     private List<FormationStatsTopItemDto> topViewedFormations = new ArrayList<>();
     private List<FormationStatsTopItemDto> topLikedFormations = new ArrayList<>();
@@ -81,6 +83,22 @@ public class FormationGlobalStatsDto {
 
     public void setGuideNotStartedCount(long guideNotStartedCount) {
         this.guideNotStartedCount = guideNotStartedCount;
+    }
+
+    public double getAverageQuizScore() {
+        return averageQuizScore;
+    }
+
+    public void setAverageQuizScore(double averageQuizScore) {
+        this.averageQuizScore = averageQuizScore;
+    }
+
+    public double getQuizSuccessRate() {
+        return quizSuccessRate;
+    }
+
+    public void setQuizSuccessRate(double quizSuccessRate) {
+        this.quizSuccessRate = quizSuccessRate;
     }
 
     public List<FormationStatsTopItemDto> getTopViewedFormations() {

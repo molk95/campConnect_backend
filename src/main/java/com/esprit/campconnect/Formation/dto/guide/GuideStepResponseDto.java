@@ -5,6 +5,8 @@ import com.esprit.campconnect.Formation.entity.guide.GuideStepMediaType;
 public class GuideStepResponseDto {
 
     private Long id;
+    private Integer chapterOrder;
+    private String chapterTitle;
     private Integer stepOrder;
     private String titre;
     private String description;
@@ -21,6 +23,22 @@ public class GuideStepResponseDto {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Integer getChapterOrder() {
+        return chapterOrder;
+    }
+
+    public void setChapterOrder(Integer chapterOrder) {
+        this.chapterOrder = chapterOrder;
+    }
+
+    public String getChapterTitle() {
+        return chapterTitle;
+    }
+
+    public void setChapterTitle(String chapterTitle) {
+        this.chapterTitle = chapterTitle;
     }
 
     public Integer getStepOrder() {

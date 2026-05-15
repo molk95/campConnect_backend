@@ -55,6 +55,12 @@ public class FormationStatsServiceImpl implements FormationStatsService {
                 0L,
                 safeMultiply(totalUsers, totalGuides) - guideCompletedCount - guideInProgressCount
         );
+        double averageQuizScore = roundTwoDecimals(guideProgressRepository.averageQuizScoreGlobal());
+        long quizAttemptedGlobal = guideProgressRepository.countQuizAttemptedGlobal();
+        long quizPassedGlobal = guideProgressRepository.countQuizPassedGlobal();
+        double quizSuccessRate = quizAttemptedGlobal == 0
+                ? 0D
+                : roundTwoDecimals((quizPassedGlobal * 100.0) / quizAttemptedGlobal);
 
         FormationGlobalStatsDto dto = new FormationGlobalStatsDto();
         dto.setTotalFormations(totalFormations);
@@ -65,6 +71,8 @@ public class FormationStatsServiceImpl implements FormationStatsService {
         dto.setGuideCompletedCount(guideCompletedCount);
         dto.setGuideInProgressCount(guideInProgressCount);
         dto.setGuideNotStartedCount(guideNotStartedCount);
+        dto.setAverageQuizScore(averageQuizScore);
+        dto.setQuizSuccessRate(quizSuccessRate);
 
         GuideProgressDistributionDto distribution = new GuideProgressDistributionDto();
         distribution.setCompleted(guideCompletedCount);
@@ -97,6 +105,7 @@ public class FormationStatsServiceImpl implements FormationStatsService {
         dto.setTitle(formation.getTitre());
         dto.setLikesCount(likesCount);
         dto.setAverageQuizScore(0D);
+        dto.setQuizSuccessRate(0D);
 
         Optional<GuideInteractif> guideOpt = guideInteractifRepository.findByFormation_Id(formationId);
         if (guideOpt.isEmpty()) {
@@ -112,6 +121,12 @@ public class FormationStatsServiceImpl implements FormationStatsService {
         long completedCount = guideProgressRepository.countByGuide_IdAndCompletedTrue(guideId);
         long startedCount = guideProgressRepository.countByGuide_Id(guideId);
         double startedAverageProgress = guideProgressRepository.averageProgressByGuideId(guideId);
+        double averageQuizScore = roundTwoDecimals(guideProgressRepository.averageQuizScoreByGuideId(guideId));
+        long quizAttempted = guideProgressRepository.countQuizAttemptedByGuideId(guideId);
+        long quizPassed = guideProgressRepository.countQuizPassedByGuideId(guideId);
+        double quizSuccessRate = quizAttempted == 0
+                ? 0D
+                : roundTwoDecimals((quizPassed * 100.0) / quizAttempted);
 
         double completionRate = totalUsers == 0
                 ? 0D
@@ -124,6 +139,8 @@ public class FormationStatsServiceImpl implements FormationStatsService {
         dto.setViewsCount(viewsCount);
         dto.setCompletionRate(completionRate);
         dto.setAverageProgress(averageProgress);
+        dto.setAverageQuizScore(averageQuizScore);
+        dto.setQuizSuccessRate(quizSuccessRate);
         dto.setViewsEvolution(mapViewsEvolution(
                 guideStepCompletionRepository.aggregateViewsEvolutionByFormationId(formationId)
         ));

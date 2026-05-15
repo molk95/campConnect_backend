@@ -11,5 +11,9 @@ public interface GuideStepRepository extends JpaRepository<GuideStep, Long> {
 
     Optional<GuideStep> findByIdAndGuide_Id(Long stepId, Long guideId);
 
+    Optional<GuideStep> findByGuide_IdAndStepOrder(Long guideId, Integer stepOrder);
+
     boolean existsByGuide_IdAndStepOrder(Long guideId, Integer stepOrder);
+
+    long countByGuide_Id(Long guideId);
 }

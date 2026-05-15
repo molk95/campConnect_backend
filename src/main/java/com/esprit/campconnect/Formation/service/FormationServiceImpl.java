@@ -6,6 +6,9 @@ import com.esprit.campconnect.Formation.entity.FormationLevel;
 import com.esprit.campconnect.Formation.entity.FormationStatus;
 import com.esprit.campconnect.Formation.repository.FormationLikeRepository;
 import com.esprit.campconnect.Formation.repository.FormationRepository;
+import com.esprit.campconnect.Formation.entity.guide.GuideInteractif;
+import com.esprit.campconnect.Formation.repository.guide.GuideInteractifRepository;
+import com.esprit.campconnect.Formation.repository.guide.GuideStepRepository;
 import com.esprit.campconnect.User.Entity.Utilisateur;
 import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,8 @@ public class FormationServiceImpl implements FormationService {
     private final FormationRepository formationRepository;
     private final FormationLikeRepository formationLikeRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final GuideInteractifRepository guideInteractifRepository;
+    private final GuideStepRepository guideStepRepository;
 
     @Override
     public List<Formation> getAll() {
@@ -69,6 +74,9 @@ public class FormationServiceImpl implements FormationService {
         if (formation.getStatus() == null) {
             formation.setStatus(FormationStatus.DRAFT);
         }
+        if (formation.getQuizMinimumScore() == null) {
+            formation.setQuizMinimumScore(70);
+        }
         return formationRepository.save(formation);
     }
 
@@ -86,6 +94,11 @@ public class FormationServiceImpl implements FormationService {
         if (formation.getStatus() != null) {
             existing.setStatus(formation.getStatus());
         }
+        existing.setObjectifsText(formation.getObjectifsText());
+        existing.setQuizTitle(formation.getQuizTitle());
+        if (formation.getQuizMinimumScore() != null) {
+            existing.setQuizMinimumScore(Math.max(0, Math.min(100, formation.getQuizMinimumScore())));
+        }
         return formationRepository.save(existing);
     }
 
@@ -93,6 +106,15 @@ public class FormationServiceImpl implements FormationService {
     public void delete(Long id) {
         Formation existing = getById(id);
         formationRepository.delete(existing);
+    }
+
+    @Override
+    @Transactional
+    public Formation publish(Long id) {
+        Formation formation = getById(id);
+        validatePublishable(formation);
+        formation.setStatus(FormationStatus.PUBLISHED);
+        return formationRepository.save(formation);
     }
 
     @Override
@@ -146,5 +168,31 @@ public class FormationServiceImpl implements FormationService {
         return formationLikeRepository.findLikedFormationIdsByUserAndFormationIds(utilisateurId, formationIds)
                 .stream()
                 .collect(Collectors.toSet());
+    }
+
+    private void validatePublishable(Formation formation) {
+        if (formation.getTitre() == null || formation.getTitre().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Impossible de publier: titre manquant");
+        }
+        if (formation.getDescription() == null || formation.getDescription().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Impossible de publier: description manquante");
+        }
+        if (formation.getDuration() == null || formation.getDuration() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Impossible de publier: duree invalide");
+        }
+
+        GuideInteractif guide = guideInteractifRepository.findByFormation_Id(formation.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Impossible de publier: guide interactif manquant"
+                ));
+
+        long stepsCount = guideStepRepository.countByGuide_Id(guide.getId());
+        if (stepsCount <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Impossible de publier: ajoutez au moins une etape au guide"
+            );
+        }
     }
 }

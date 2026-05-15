@@ -21,7 +21,6 @@ public class Forum {
     private String auteurEmail;
     private String auteurNom;
     private LocalDateTime dateCreation;
-
     @OneToMany(mappedBy = "forum", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore   // 🔥 IMPORTANT
     private List<Publication> publications;

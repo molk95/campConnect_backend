@@ -48,7 +48,8 @@ public class CommentaireServiceImpl implements CommentaireService {
     @Override
     public Commentaire likeCommentaire(Long id) {
         Commentaire commentaire = getById(id);
-        commentaire.setLikesCount(commentaire.getLikesCount() + 1);
+        int currentLikes = commentaire.getLikesCount() == null ? 0 : commentaire.getLikesCount();
+        commentaire.setLikesCount(currentLikes + 1);
         return commentaireRepository.save(commentaire);
     }
 

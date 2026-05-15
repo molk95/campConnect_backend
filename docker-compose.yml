@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   mysql:
@@ -35,6 +33,9 @@ services:
       - "8082:8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/campconnect?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-root}
       CLOUDINARY_CLOUD_NAME: dczqefpdb
       CLOUDINARY_API_KEY: 496427515753929
       CLOUDINARY_API_SECRET: n-zjAvwxckpv6zxxHyiBHo-q_8k

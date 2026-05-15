@@ -36,6 +36,51 @@ public interface GuideProgressRepository extends JpaRepository<GuideProgress, Lo
     double averageProgressByGuideId(@Param("guideId") Long guideId);
 
     @Query("""
+            SELECT COALESCE(AVG(gp.quizScore), 0D)
+            FROM GuideProgress gp
+            WHERE gp.quizScore IS NOT NULL
+            """)
+    double averageQuizScoreGlobal();
+
+    @Query("""
+            SELECT COUNT(gp)
+            FROM GuideProgress gp
+            WHERE gp.quizScore IS NOT NULL
+            """)
+    long countQuizAttemptedGlobal();
+
+    @Query("""
+            SELECT COUNT(gp)
+            FROM GuideProgress gp
+            WHERE gp.quizPassed = true
+            """)
+    long countQuizPassedGlobal();
+
+    @Query("""
+            SELECT COALESCE(AVG(gp.quizScore), 0D)
+            FROM GuideProgress gp
+            WHERE gp.guide.id = :guideId
+              AND gp.quizScore IS NOT NULL
+            """)
+    double averageQuizScoreByGuideId(@Param("guideId") Long guideId);
+
+    @Query("""
+            SELECT COUNT(gp)
+            FROM GuideProgress gp
+            WHERE gp.guide.id = :guideId
+              AND gp.quizScore IS NOT NULL
+            """)
+    long countQuizAttemptedByGuideId(@Param("guideId") Long guideId);
+
+    @Query("""
+            SELECT COUNT(gp)
+            FROM GuideProgress gp
+            WHERE gp.guide.id = :guideId
+              AND gp.quizPassed = true
+            """)
+    long countQuizPassedByGuideId(@Param("guideId") Long guideId);
+
+    @Query("""
             SELECT gp.guide.formation.id AS formationId,
                    gp.guide.formation.titre AS titre,
                    COUNT(DISTINCT gp.utilisateur.id) AS totalCount

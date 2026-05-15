@@ -4,6 +4,8 @@ import com.esprit.campconnect.Formation.entity.FormationLevel;
 import com.esprit.campconnect.Formation.entity.FormationStatus;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FormationResponseDto {
 
@@ -19,6 +21,10 @@ public class FormationResponseDto {
     private String auteurNom;
     private Long likeCount;
     private Boolean likedByCurrentUser;
+    private List<String> objectifs = new ArrayList<>();
+    private String objectifsText;
+    private String quizTitle;
+    private Integer quizMinimumScore;
 
     public FormationResponseDto() {
     }
@@ -117,5 +123,37 @@ public class FormationResponseDto {
 
     public void setLikedByCurrentUser(Boolean likedByCurrentUser) {
         this.likedByCurrentUser = likedByCurrentUser;
+    }
+
+    public List<String> getObjectifs() {
+        return objectifs;
+    }
+
+    public void setObjectifs(List<String> objectifs) {
+        this.objectifs = objectifs;
+    }
+
+    public String getObjectifsText() {
+        return objectifsText;
+    }
+
+    public void setObjectifsText(String objectifsText) {
+        this.objectifsText = objectifsText;
+    }
+
+    public String getQuizTitle() {
+        return quizTitle;
+    }
+
+    public void setQuizTitle(String quizTitle) {
+        this.quizTitle = quizTitle;
+    }
+
+    public Integer getQuizMinimumScore() {
+        return quizMinimumScore;
+    }
+
+    public void setQuizMinimumScore(Integer quizMinimumScore) {
+        this.quizMinimumScore = quizMinimumScore;
     }
 }

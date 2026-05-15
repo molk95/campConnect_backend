@@ -53,6 +53,13 @@ public class GuideProgress {
 
     private LocalDateTime rewardUnlockedAt;
 
+    private Integer quizScore;
+
+    @Column(nullable = false)
+    private Boolean quizPassed;
+
+    private LocalDateTime quizAttemptedAt;
+
     @Column(nullable = false)
     private LocalDateTime lastUpdated;
 
@@ -72,6 +79,9 @@ public class GuideProgress {
         }
         if (this.rewardUnlocked == null) {
             this.rewardUnlocked = false;
+        }
+        if (this.quizPassed == null) {
+            this.quizPassed = false;
         }
         if (this.lastUpdated == null) {
             this.lastUpdated = LocalDateTime.now();
@@ -148,6 +158,30 @@ public class GuideProgress {
 
     public void setRewardUnlockedAt(LocalDateTime rewardUnlockedAt) {
         this.rewardUnlockedAt = rewardUnlockedAt;
+    }
+
+    public Integer getQuizScore() {
+        return quizScore;
+    }
+
+    public void setQuizScore(Integer quizScore) {
+        this.quizScore = quizScore;
+    }
+
+    public Boolean getQuizPassed() {
+        return quizPassed;
+    }
+
+    public void setQuizPassed(Boolean quizPassed) {
+        this.quizPassed = quizPassed;
+    }
+
+    public LocalDateTime getQuizAttemptedAt() {
+        return quizAttemptedAt;
+    }
+
+    public void setQuizAttemptedAt(LocalDateTime quizAttemptedAt) {
+        this.quizAttemptedAt = quizAttemptedAt;
     }
 
     public LocalDateTime getLastUpdated() {

@@ -27,9 +27,8 @@ public class Publication {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "forum_id", nullable = false)
-    @JsonIgnoreProperties({"publications"})   // 🔥 IMPORTANT
     private Forum forum;
-
+    @JsonIgnoreProperties({"publications"})   // 🔥 IMPORTANT
     @JsonIgnore
     @OneToMany(mappedBy = "publication", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Commentaire> commentaires = new ArrayList<>();
