@@ -23,6 +23,6 @@ public class ImageUploadDTO {
 
     @Size(max = 5000, message = "La galerie d'images ne peut pas dépasser 5000 caractères")
     @JsonProperty("galleryImages")
-    private String galleryImages; // JSON array of image URLs: ["url1", "url2", ...]
+    private String galleryImages; 
 
 }
