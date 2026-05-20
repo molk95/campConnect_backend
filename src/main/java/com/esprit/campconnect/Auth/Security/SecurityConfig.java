@@ -117,8 +117,6 @@ public class SecurityConfig {
                                 "/uploads/**",
                                 "/forums/**").permitAll()
 
-                        .anyRequest().authenticated()
-
 
                         .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
