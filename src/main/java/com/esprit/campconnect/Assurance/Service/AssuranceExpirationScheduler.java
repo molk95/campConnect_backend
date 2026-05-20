@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -21,19 +22,35 @@ public class AssuranceExpirationScheduler {
     private final INotificationUserService notificationUserService;
     private final IMailService mailService;
 
-    @Scheduled(cron = "0 0 9 * * *")
+    //@Scheduled(cron = "0 0 * * * *")
+    @Scheduled(fixedRate = 60000)
     public void notifierAssurancesQuiExpirent() {
-        LocalDate targetDate = LocalDate.now().plusDays(3);
+
+        LocalDate today = LocalDate.now();
+        LocalDate maxDate = today.plusDays(3);
+
+        System.out.println("Scheduler assurance expiration lancé : " + today + " -> " + maxDate);
 
         List<SouscriptionAssurance> souscriptions =
-                souscriptionRepository.findByStatutAndDateFin(StatutSouscription.ACTIVE, targetDate);
+                souscriptionRepository.findByStatutAndDateFinBetweenAndNotificationExpirationEnvoyeeFalse(
+                        StatutSouscription.ACTIVE,
+                        today,
+                        maxDate
+                );
+
+        System.out.println("Souscriptions proches expiration trouvées : " + souscriptions.size());
 
         for (SouscriptionAssurance souscription : souscriptions) {
-            if (souscription.getUtilisateur() == null) continue;
+
+            if (souscription.getUtilisateur() == null) {
+                continue;
+            }
+
+            long joursRestants = ChronoUnit.DAYS.between(today, souscription.getDateFin());
 
             String titre = "Assurance bientôt expirée";
-            String message = "Votre assurance expire dans 3 jours. Contrat : "
-                    + souscription.getNumeroContrat();
+            String message = "Votre assurance expire dans " + joursRestants
+                    + " jour(s). Contrat : " + souscription.getNumeroContrat();
 
             notificationUserService.createNotification(
                     souscription.getUtilisateur(),
@@ -43,16 +60,26 @@ public class AssuranceExpirationScheduler {
             );
 
             try {
-                mailService.sendMail(
-                        souscription.getUtilisateur().getEmail(),
-                        "Votre assurance expire bientôt - CampConnect",
-                        "Bonjour " + souscription.getUtilisateur().getNom() + ",\n\n"
-                                + message + "\n\n"
-                                + "Cordialement,\nCampConnect"
-                );
+                if (souscription.getUtilisateur().getEmail() != null
+                        && !souscription.getUtilisateur().getEmail().isBlank()) {
+
+                    mailService.sendMail(
+                            souscription.getUtilisateur().getEmail(),
+                            "Votre assurance expire bientôt - CampConnect",
+                            "Bonjour " + souscription.getUtilisateur().getNom() + ",\n\n"
+                                    + message + "\n\n"
+                                    + "Cordialement,\nCampConnect"
+                    );
+                }
             } catch (Exception e) {
                 System.out.println("Erreur mail expiration assurance : " + e.getMessage());
             }
+
+            souscription.setNotificationExpirationEnvoyee(true);
+            souscriptionRepository.save(souscription);
+
+            System.out.println("Notification expiration envoyée pour contrat : "
+                    + souscription.getNumeroContrat());
         }
     }
 }

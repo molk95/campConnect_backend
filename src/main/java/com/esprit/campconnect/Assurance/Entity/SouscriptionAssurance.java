@@ -62,6 +62,9 @@ public class SouscriptionAssurance {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     InscriptionSite inscriptionSite;
 
+    @Column(nullable = false)
+    private boolean notificationExpirationEnvoyee = false;
+
 
 
 
