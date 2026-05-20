@@ -18,4 +18,10 @@ public interface SouscriptionAssuranceRepository extends JpaRepository<Souscript
             StatutSouscription statut,
             LocalDate dateFin
     );
+
+    List<SouscriptionAssurance> findByStatutAndDateFinBetweenAndNotificationExpirationEnvoyeeFalse(
+            StatutSouscription statut,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 }
