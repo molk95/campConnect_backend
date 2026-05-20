@@ -32,17 +32,9 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-
-                        // ===============================
-                        // SYSTEM / ERROR / OPTIONS
-                        // ===============================
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/error").permitAll()
-
-                        // ===============================
-                        // AUTH PUBLIC
-                        // ===============================
                         .requestMatchers(
                                 "/user/**",
                                 "/auth/login",
@@ -51,22 +43,9 @@ public class SecurityConfig {
                                 "/auth/google",
                                 "/auth/forgot-password",
                                 "/auth/reset-password",
-                                "/auth/2fa/**"
-                        ).permitAll()
-
-                        // ===============================
-                        // SWAGGER
-                        // ===============================
-                        .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).permitAll()
-
-                        // ===============================
-                        // PUBLIC ROUTES
-                        // ===============================
-                        .requestMatchers(
+                                "/swagger-ui.html",
                                 "/config/**",
                                 "/api/config/**",
                                 "/events/**",
@@ -74,7 +53,7 @@ public class SecurityConfig {
                                 "/site-camping-avis/**",
                                 "/inscriptionsite/**",
                                 "/reclamations/**",
-                                "/reclamation-notifications/**",
+                        "/reclamation-notifications/**",
                                 "/repas/**",
                                 "/commandes-repas/**",
                                 "/produits/**",
@@ -82,14 +61,12 @@ public class SecurityConfig {
                                 "/paniers/**",
                                 "/commandes/**",
                                 "/details-commandes/**",
-                                "/commentaires/**",
+                                 "/commentaires/**",
                                 "/uploads/**",
                                 "/actuator/**",
                                 "/forums/**",
-                                "/publications/forum/**"
-                        ).permitAll()
-
-                        // ===============================
+                                "/publications/forum/**").permitAll()
+                                                        // ===============================
                         // FORMATIONS + GUIDE INTERACTIF
                         // ===============================
                         .requestMatchers(
@@ -107,15 +84,22 @@ public class SecurityConfig {
                         // ===============================
                         // RESTAURATION
                         // ===============================
-                        .requestMatchers(HttpMethod.GET, "/api/repas/**")
-                        .hasAnyAuthority("CLIENT", "GERANT_RESTAU")
+                                .requestMatchers(HttpMethod.GET, "/api/repas/**")
+                                //.hasAnyRole("CLIENT", "GERANT_RESTAU")
+                                .hasAnyAuthority("CLIENT", "GERANT_RESTAU")
+//                        .requestMatchers(HttpMethod.GET, "/repas/**").permitAll()
 
                         .requestMatchers(HttpMethod.POST, "/repas/**").hasRole("GERANT_RESTAU")
                         .requestMatchers(HttpMethod.PUT, "/repas/**").hasRole("GERANT_RESTAU")
                         .requestMatchers(HttpMethod.DELETE, "/repas/**").hasRole("GERANT_RESTAU")
-
                         .requestMatchers(HttpMethod.POST, "/commandes/**").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/commandes/**").authenticated()
+
+
+
+
+                        .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
 
                         // ===============================
                         // ASSURANCE - PUBLIC
@@ -125,7 +109,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/garantie/**").permitAll()
 
                         // ===============================
-                        // ASSURANCE - ADMIN + AGENT
+                        // ASSURANCE - ADMIN ONLY
                         // ===============================
                         .requestMatchers(HttpMethod.POST, "/api/assurance/add").hasRole("ADMINISTRATEUR")
                         .requestMatchers(HttpMethod.PUT, "/api/assurance/update").hasRole("ADMINISTRATEUR")
@@ -173,9 +157,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/assurance/delete/*")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
-                        // ===============================
-                        // GARANTIES
-                        // ===============================
+// ===============================
+// GARANTIES - ADMIN + AGENT ASSURANCE
+// ===============================
                         .requestMatchers(HttpMethod.POST, "/api/garantie/add/*")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
@@ -185,9 +169,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/garantie/delete/*")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
-                        // ===============================
-                        // SOUSCRIPTIONS
-                        // ===============================
+// ===============================
+// SOUSCRIPTIONS
+// ===============================
                         .requestMatchers(HttpMethod.GET, "/api/souscription-assurance/all")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
@@ -206,9 +190,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/souscription-assurance/delete/*")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
-                        // ===============================
-                        // SINISTRES
-                        // ===============================
+// ===============================
+// SINISTRES
+// ===============================
                         .requestMatchers(HttpMethod.GET, "/api/sinistre/all")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
@@ -227,9 +211,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/sinistre/delete/*")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
-                        // ===============================
-                        // DOCUMENTS ASSURANCE
-                        // ===============================
+// ===============================
+// DOCUMENTS ASSURANCE
+// ===============================
                         .requestMatchers(HttpMethod.GET, "/api/document-assurance/sinistre/*")
                         .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
 
@@ -242,9 +226,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/document-assurance/delete/*")
                         .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
 
-                        // ===============================
-                        // REMBOURSEMENTS
-                        // ===============================
+// ===============================
+// REMBOURSEMENTS
+// ===============================
                         .requestMatchers(HttpMethod.GET, "/api/remboursement/all")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
@@ -263,9 +247,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/remboursement/delete/*")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
-                        // ===============================
-                        // IA ASSURANCE
-                        // ===============================
+// ===============================
+// IA ASSURANCE
+// ===============================
                         .requestMatchers(HttpMethod.POST, "/api/assurance-ai/analyse-sinistre")
                         .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
 
@@ -278,9 +262,66 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/assurance-ai/fraude-sinistre-by-sinistre/**")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
+                        .requestMatchers(HttpMethod.PUT, "/api/souscription-assurance/update")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/souscription-assurance/delete/*")
+                        .hasRole("ADMINISTRATEUR")
+
                         // ===============================
-                        // WEATHER ASSURANCE
+                        // SINISTRES
                         // ===============================
+                        .requestMatchers(HttpMethod.GET, "/api/sinistre/all")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/sinistre/souscription/*")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.POST, "/api/sinistre/add/*")
+                        .hasRole("CLIENT")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/sinistre/update")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/sinistre/delete/*")
+                        .hasRole("ADMINISTRATEUR")
+
+                        .requestMatchers(HttpMethod.GET, "/api/document-assurance/sinistre/*")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.POST, "/api/document-assurance/add/*")
+                        .hasRole("CLIENT")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/document-assurance/delete/*")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        // ===============================
+                        // REMBOURSEMENTS
+                        // ===============================
+                        .requestMatchers(HttpMethod.GET, "/api/remboursement/all")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/remboursement/*")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.POST, "/api/remboursement/add/*")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/remboursement/update")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/remboursement/delete/*")
+                        .hasRole("ADMINISTRATEUR")
+
+
+
+                        .requestMatchers(HttpMethod.GET, "/publications/forum/**").permitAll()
+
+                        // ===============================
+                        // ADMIN AREA
+                        // ===============================
+                        .requestMatchers(HttpMethod.GET, "/publications/forum/**").permitAll()
+
                         .requestMatchers(HttpMethod.POST, "/api/assurance-weather/verifier")
                         .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
 
@@ -296,10 +337,12 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**").hasRole("ADMINISTRATEUR")
 
                         // ===============================
-                        // IMPORTANT : toujours en dernier
+                        // AUTHENTICATED ROUTES
                         // ===============================
-                        .anyRequest().authenticated()
-                )
+                        .requestMatchers("/auth/2fa/**").authenticated()
+
+                        .anyRequest().authenticated())
+
 
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
