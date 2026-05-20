@@ -127,6 +127,43 @@ public class SecurityConfig {
                         // ===============================
                         // ASSURANCE - ADMIN + AGENT
                         // ===============================
+                        .requestMatchers(HttpMethod.POST, "/api/assurance/add").hasRole("ADMINISTRATEUR")
+                        .requestMatchers(HttpMethod.PUT, "/api/assurance/update").hasRole("ADMINISTRATEUR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/assurance/delete/*").hasRole("ADMINISTRATEUR")
+
+                        // ===============================
+                        // SOUSCRIPTIONS
+                        // ===============================
+                        .requestMatchers(HttpMethod.GET, "/api/souscription-assurance/all")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/souscription-assurance/user/*")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.POST, "/api/souscription-assurance/add/*/*")
+                        .hasRole("CLIENT") .requestMatchers(
+                                "/detail-panier/**",
+                                "/paniers/**",
+                                "/commandes/**",
+                                "/details-commandes/**",
+                                 "/commentaires",
+                                "/uploads/**",
+                                "/forums/**").permitAll()
+
+
+                        .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
+
+                        // ===============================
+// ASSURANCE - PUBLIC
+// ===============================
+                        .requestMatchers(HttpMethod.GET, "/api/assurance/all").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/assurance/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/garantie/**").permitAll()
+
+// ===============================
+// ASSURANCE - ADMIN + AGENT ASSURANCE
+// ===============================
                         .requestMatchers(HttpMethod.POST, "/api/assurance/add")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
