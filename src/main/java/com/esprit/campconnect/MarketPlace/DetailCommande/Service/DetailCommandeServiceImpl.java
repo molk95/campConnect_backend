@@ -41,6 +41,8 @@ public class DetailCommandeServiceImpl implements DetailCommandeService {
         existingDetail.setTotal(detailCommande.getQuantite() * detailCommande.getPrixUnitaire());
         existingDetail.setCommande(detailCommande.getCommande());
         existingDetail.setProduit(detailCommande.getProduit());
+        existingDetail.setPointure(detailCommande.getPointure());
+        existingDetail.setTaille(detailCommande.getTaille());
 
         return detailCommandeRepository.save(existingDetail);
     }

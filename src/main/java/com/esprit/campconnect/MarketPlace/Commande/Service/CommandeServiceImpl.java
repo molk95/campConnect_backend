@@ -1,6 +1,8 @@
 package com.esprit.campconnect.MarketPlace.Commande.Service;
 
+
 import com.esprit.campconnect.MarketPlace.Commande.Entity.Commande;
+import com.esprit.campconnect.MarketPlace.Commande.Entity.EtatLivraison;
 import com.esprit.campconnect.MarketPlace.Commande.Entity.StatutCommande;
 import com.esprit.campconnect.MarketPlace.Commande.Repository.CommandeRepository;
 import com.esprit.campconnect.MarketPlace.DetailCommande.Entity.DetailCommande;
@@ -42,6 +44,11 @@ public class CommandeServiceImpl implements CommandeService {
         this.produitRepository = produitRepository;
     }
 
+    public Commande changerEtatLivraison(Long id, EtatLivraison etatLivraison) {
+        Commande commande = getCommandeById(id);
+        commande.setEtatLivraison(etatLivraison);
+        return commandeRepository.save(commande);
+    }
     @Override
     public Commande ajouterCommande(Commande commande) {
         commande.setDateCommande(LocalDate.now());
@@ -82,11 +89,15 @@ public class CommandeServiceImpl implements CommandeService {
         commandeRepository.delete(commande);
     }
 
-    @Override
-    public List<Commande> getCommandesByUtilisateur(Long utilisateurId) {
-        return commandeRepository.findByUtilisateurId(utilisateurId);
-    }
+@Override
+public List<Commande> getCommandesByUtilisateur(Long utilisateurId) {
+    return commandeRepository.findByUtilisateur_IdOrderByDateCommandeDescIdCommandeDesc(utilisateurId);
+}
 
+@Override
+public List<Commande> getCommandesByUtilisateurConnecte(String email) {
+    return commandeRepository.findByUtilisateur_EmailOrderByDateCommandeDescIdCommandeDesc(email);
+}
     @Override
     public List<Commande> getCommandesByStatut(StatutCommande statut) {
         return commandeRepository.findByStatut(statut);

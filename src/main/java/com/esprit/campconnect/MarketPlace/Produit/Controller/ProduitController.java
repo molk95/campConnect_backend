@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/produits")
@@ -31,6 +32,17 @@ public class ProduitController {
         this.objectMapper = objectMapper;
     }
 
+
+    @PutMapping("/{idProduit}/stock")
+    public Produit modifierStockGlobal(
+            @PathVariable Long idProduit,
+            @RequestBody Map<String, Integer> body
+    ) {
+        return produitService.modifierStockGlobal(
+                idProduit,
+                body.get("stock")
+        );
+    }
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Produit ajouterProduit(
             @RequestParam("nom") String nom,

@@ -18,6 +18,7 @@ public interface ProduitService {
 
     List<Produit> getProduitsByCategory(Categorie categorie);
 
+    Produit modifierStockGlobal(Long idProduit, int stock);
     void desactiverProduit(Long id);
     void activerProduit(Long id);
 }

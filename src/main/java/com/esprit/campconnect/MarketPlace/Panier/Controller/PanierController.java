@@ -21,6 +21,17 @@ public class PanierController {
         this.panierService = panierService;
     }
 
+
+
+    @PostMapping("/send-coupon/{userId}")
+    public ResponseEntity<?> envoyerCoupon(@PathVariable Long userId) {
+        try {
+            panierService.envoyerCouponPremiereCommande(userId);
+            return ResponseEntity.ok("Coupon envoyé par email avec succès.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
     @PostMapping
     public ResponseEntity<?> ajouterPanier(@RequestBody Panier panier) {
         try {

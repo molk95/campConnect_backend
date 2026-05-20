@@ -17,4 +17,7 @@ public interface PanierService {
     void deletePanier(Long id);
 
     Panier getOrCreatePanierEnCours(Long utilisateurId);
+
+    String envoyerCouponPremiereCommande(Long userId);
+
 }

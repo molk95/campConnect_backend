@@ -12,7 +12,6 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,9 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @RequiredArgsConstructor
-
 @EnableMethodSecurity
-
 public class SecurityConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
@@ -67,7 +64,78 @@ public class SecurityConfig {
                                 "/commentaires",
                                 "/uploads/**",
                                 "/forums/**").permitAll()
+                                 "/commentaires/**",
+                                "/uploads/**",
+                                "/actuator/**",
+                                "/forums/**",
+                                "/publications/forum/**").permitAll()
+                                                        // ===============================
+                        // FORMATIONS + GUIDE INTERACTIF
+                        // ===============================
+                        .requestMatchers(
+                                "/formations/**",
+                                "/guide-interactif/**",
+                                "/api/formations/**",
+                                "/api/guide-interactif/**"
+                        ).permitAll()
 
+                        // ===============================
+                        // STRIPE
+                        // ===============================
+                        .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
+
+                        // ===============================
+                        // RESTAURATION
+                        // ===============================
+                                .requestMatchers(HttpMethod.GET, "/api/repas/**")
+                                //.hasAnyRole("CLIENT", "GERANT_RESTAU")
+                                .hasAnyAuthority("CLIENT", "GERANT_RESTAU")
+//                        .requestMatchers(HttpMethod.GET, "/repas/**").permitAll()
+
+                        .requestMatchers(HttpMethod.POST, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.PUT, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.DELETE, "/repas/**").hasRole("GERANT_RESTAU")
+                        .requestMatchers(HttpMethod.POST, "/commandes/**").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.GET, "/commandes/**").authenticated()
+
+
+
+
+                        .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
+
+                        // ===============================
+                        // ASSURANCE - PUBLIC
+                        // ===============================
+                        .requestMatchers(HttpMethod.GET, "/api/assurance/all").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/assurance/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/garantie/**").permitAll()
+
+                        // ===============================
+                        // ASSURANCE - ADMIN ONLY
+                        // ===============================
+                        .requestMatchers(HttpMethod.POST, "/api/assurance/add").hasRole("ADMINISTRATEUR")
+                        .requestMatchers(HttpMethod.PUT, "/api/assurance/update").hasRole("ADMINISTRATEUR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/assurance/delete/*").hasRole("ADMINISTRATEUR")
+
+                        // ===============================
+                        // SOUSCRIPTIONS
+                        // ===============================
+                        .requestMatchers(HttpMethod.GET, "/api/souscription-assurance/all")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/souscription-assurance/user/*")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.POST, "/api/souscription-assurance/add/*/*")
+                        .hasRole("CLIENT") .requestMatchers(
+                                "/detail-panier/**",
+                                "/paniers/**",
+                                "/commandes/**",
+                                "/details-commandes/**",
+                                 "/commentaires",
+                                "/uploads/**",
+                                "/forums/**").permitAll()
 
 
                         .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
