@@ -20,9 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @RequiredArgsConstructor
-
 @EnableMethodSecurity
-
 public class SecurityConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
@@ -63,10 +61,29 @@ public class SecurityConfig {
                                 "/paniers/**",
                                 "/commandes/**",
                                 "/details-commandes/**",
-                                 "/commentaires",
+                                 "/commentaires/**",
                                 "/uploads/**",
                                 "/actuator/**",
-                                "/forums/**").permitAll()
+                                "/forums/**",
+                                "/publications/forum/**").permitAll()
+                                                        // ===============================
+                        // FORMATIONS + GUIDE INTERACTIF
+                        // ===============================
+                        .requestMatchers(
+                                "/formations/**",
+                                "/guide-interactif/**",
+                                "/api/formations/**",
+                                "/api/guide-interactif/**"
+                        ).permitAll()
+
+                        // ===============================
+                        // STRIPE
+                        // ===============================
+                        .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
+
+                        // ===============================
+                        // RESTAURATION
+                        // ===============================
                                 .requestMatchers(HttpMethod.GET, "/api/repas/**")
                                 //.hasAnyRole("CLIENT", "GERANT_RESTAU")
                                 .hasAnyAuthority("CLIENT", "GERANT_RESTAU")
