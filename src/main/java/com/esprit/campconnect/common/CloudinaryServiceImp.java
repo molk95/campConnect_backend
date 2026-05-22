@@ -14,6 +14,10 @@ public class CloudinaryServiceImp implements ICloudinaryService  {
     @Override
     public Map<String, String> uploadImage(MultipartFile file) {
         try {
+            System.out.println("=== CLOUDINARY CONFIG ===");
+            System.out.println("cloud_name: " + cloudinary.config.cloudName);
+            System.out.println("api_key: " + cloudinary.config.apiKey);
+
             Map uploadResult = cloudinary.uploader().upload(
                     file.getBytes(),
                     Map.of("folder", "campconnect/site-camping")
@@ -27,6 +31,8 @@ public class CloudinaryServiceImp implements ICloudinaryService  {
                     "imagePublicId", imagePublicId
             );
         } catch (Exception e) {
+            System.out.println("=== CLOUDINARY ERROR ===");
+            e.printStackTrace(); // 👈 affiche l'erreur complète
             throw new RuntimeException("Failed to upload image to Cloudinary", e);
         }
     }
