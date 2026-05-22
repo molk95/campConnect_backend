@@ -63,8 +63,8 @@ public class SecurityConfig {
                                 "/details-commandes/**",
                                 "/commentaires",
                                 "/uploads/**",
-                                "/forums/**").permitAll()
-                                 "/commentaires/**",
+                                "/forums/**",
+                                "/commentaires/**",
                                 "/uploads/**",
                                 "/actuator/**",
                                 "/forums/**",
