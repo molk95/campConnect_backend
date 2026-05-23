@@ -83,6 +83,32 @@ kubectl -n campconnect port-forward svc/campconnect-frontend 30080:80
 kubectl -n campconnect port-forward svc/campconnect-backend 30082:8082
 ```
 
+Ingress controller setup for local Kubernetes:
+
+```powershell
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.15.1/deploy/static/provider/baremetal/deploy.yaml
+kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=240s
+```
+
+Local Ingress test through port-forward:
+
+```powershell
+kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8088:80
+```
+
+Then add this line to your Windows hosts file if you want to test in the browser:
+
+```text
+127.0.0.1 campconnect.local
+```
+
+Open:
+
+```text
+http://campconnect.local:8088
+http://campconnect.local:8088/api/actuator/health
+```
+
 The current Angular code still contains several `http://localhost:8082` calls. For that reason, keep the backend reachable on `localhost:8082` during the current demo phase. Later, the cleaner production fix is to move the frontend to a single API base URL and route `/api` through Ingress.
 
 The Jenkins pipeline updates the backend deployment image to the exact commit tag when Kubernetes deployment is enabled.
