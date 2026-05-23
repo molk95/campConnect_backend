@@ -25,3 +25,36 @@ spec:
                 name: campconnect-frontend
                 port:
                   number: 80
+    - host: localhost
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: campconnect-backend
+                port:
+                  number: 8082
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: campconnect-frontend
+                port:
+                  number: 80
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: campconnect-backend
+                port:
+                  number: 8082
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: campconnect-frontend
+                port:
+                  number: 80

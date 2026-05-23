@@ -109,6 +109,13 @@ http://campconnect.local:8088
 http://campconnect.local:8088/api/actuator/health
 ```
 
+The Ingress also accepts `localhost`, so these URLs work while the port-forward is running:
+
+```text
+http://localhost:8088
+http://localhost:8088/api/actuator/health
+```
+
 The current Angular code still contains several `http://localhost:8082` calls. For that reason, keep the backend reachable on `localhost:8082` during the current demo phase. Later, the cleaner production fix is to move the frontend to a single API base URL and route `/api` through Ingress.
 
 The Jenkins pipeline updates the backend deployment image to the exact commit tag when Kubernetes deployment is enabled.
