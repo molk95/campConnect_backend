@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: campconnect
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: campconnect
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: change-me-before-prod
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: campconnect
+data:
+  MYSQL_DATABASE: campconnect
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data
+  namespace: campconnect
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: campconnect
+  labels:
+    app: mysql
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: campconnect
+  labels:
+    app: mysql
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: mysql-config
+                  key: MYSQL_DATABASE
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-data
