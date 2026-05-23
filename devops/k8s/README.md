@@ -29,3 +29,24 @@ Apply locally:
 kubectl apply -f devops/k8s/mysql.yaml
 kubectl -n campconnect get pods,svc,pvc
 ```
+
+## Backend
+
+`backend.yaml` creates:
+
+- `backend-config` for non-secret runtime configuration
+- `backend-secret` for application secrets
+- `backend-uploads` persistent volume claim
+- `campconnect-backend` internal service
+- `campconnect-backend` deployment using `ihebboughanmi/campconnect-backend:latest`
+
+The backend reads the MySQL password from `mysql-secret`, so the backend and MySQL manifests must agree on the same secret.
+
+Apply MySQL + backend together:
+
+```powershell
+kubectl apply -k devops/k8s
+kubectl -n campconnect get pods,svc,pvc
+```
+
+The Jenkins pipeline updates the backend deployment image to the exact commit tag when Kubernetes deployment is enabled.
