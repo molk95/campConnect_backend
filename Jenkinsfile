@@ -14,12 +14,43 @@ def runCommand(String command) {
     }
 }
 
+def notifyBuild(String resultLabel) {
+    def recipients = params.NOTIFICATION_EMAIL?.trim()
+    if (!recipients) {
+        return
+    }
+
+    try {
+        emailext(
+            to: recipients,
+            subject: "[CampConnect Backend] ${resultLabel}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            mimeType: 'text/html',
+            attachLog: resultLabel != 'SUCCESS',
+            body: """
+                <p><b>CampConnect Backend</b> pipeline finished with status: <b>${resultLabel}</b>.</p>
+                <p>
+                    Job: ${env.JOB_NAME}<br/>
+                    Build: #${env.BUILD_NUMBER}<br/>
+                    Commit: ${env.GIT_COMMIT ?: 'n/a'}<br/>
+                    URL: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a>
+                </p>
+            """
+        )
+    } catch (err) {
+        echo "Email notification failed: ${err}"
+    }
+}
+
 pipeline {
     agent any
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
+    }
+
+    triggers {
+        githubPush()
     }
 
     parameters {
@@ -33,6 +64,7 @@ pipeline {
         booleanParam(name: 'DEPLOY_TO_K8S', defaultValue: false, description: 'Deploy the backend to Kubernetes after pushing the Docker image.')
         string(name: 'KUBECONFIG_CREDENTIALS_ID', defaultValue: 'kubeconfig-campconnect', description: 'Jenkins Secret file credential containing kubeconfig.')
         string(name: 'K8S_NAMESPACE', defaultValue: 'campconnect', description: 'Kubernetes namespace.')
+        string(name: 'NOTIFICATION_EMAIL', defaultValue: '', description: 'Optional email recipients for pipeline notifications. Leave empty to disable.')
     }
 
     environment {
@@ -175,6 +207,26 @@ pipeline {
     post {
         always {
             archiveArtifacts allowEmptyArchive: true, fingerprint: true, artifacts: 'target/*.jar'
+        }
+        success {
+            script {
+                notifyBuild('SUCCESS')
+            }
+        }
+        unstable {
+            script {
+                notifyBuild('UNSTABLE')
+            }
+        }
+        failure {
+            script {
+                notifyBuild('FAILURE')
+            }
+        }
+        aborted {
+            script {
+                notifyBuild('ABORTED')
+            }
         }
     }
 }

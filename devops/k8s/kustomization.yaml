@@ -3,3 +3,5 @@ kind: Kustomization
 resources:
   - mysql.yaml
   - backend.yaml
+  - exposure.yaml
+  - ingress.yaml

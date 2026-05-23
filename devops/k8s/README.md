@@ -40,6 +40,18 @@ kubectl -n campconnect get pods,svc,pvc
 - `campconnect-backend` internal service
 - `campconnect-backend` deployment using `ihebboughanmi/campconnect-backend:latest`
 
+`exposure.yaml` adds local/demo access services:
+
+- `campconnect-backend-nodeport` exposes the backend on node port `30082`
+- `campconnect-backend-local` exposes the backend on `localhost:8082` when the local Kubernetes provider supports `LoadBalancer` services, such as Docker Desktop
+
+`ingress.yaml` defines the target HTTP routing model:
+
+- `http://campconnect.local/` -> frontend service
+- `http://campconnect.local/api` -> backend service
+
+The Ingress requires an Ingress controller, such as ingress-nginx. Without a controller, the Ingress object can exist but it will not receive traffic.
+
 The backend reads the MySQL password from `mysql-secret`, so the backend and MySQL manifests must agree on the same secret.
 
 Apply MySQL + backend together:
@@ -48,5 +60,29 @@ Apply MySQL + backend together:
 kubectl apply -k devops/k8s
 kubectl -n campconnect get pods,svc,pvc
 ```
+
+Local access after applying backend and frontend manifests:
+
+```powershell
+kubectl -n campconnect get svc
+```
+
+Expected demo URLs:
+
+```text
+Frontend NodePort: http://localhost:30080
+Backend NodePort:  http://localhost:30082/api/actuator/health
+Backend local LB:  http://localhost:8082/api/actuator/health, when LoadBalancer is supported by the local cluster
+Ingress target:    http://campconnect.local
+```
+
+On some Docker Desktop/WSL setups, NodePort and local LoadBalancer services may not bind directly to Windows `localhost`. In that case, keep the same demo ports by running:
+
+```powershell
+kubectl -n campconnect port-forward svc/campconnect-frontend 30080:80
+kubectl -n campconnect port-forward svc/campconnect-backend 30082:8082
+```
+
+The current Angular code still contains several `http://localhost:8082` calls. For that reason, keep the backend reachable on `localhost:8082` during the current demo phase. Later, the cleaner production fix is to move the frontend to a single API base URL and route `/api` through Ingress.
 
 The Jenkins pipeline updates the backend deployment image to the exact commit tag when Kubernetes deployment is enabled.
