@@ -20,6 +20,7 @@ data:
   BREVO_SENDER_NAME: CampConnect
   BREVO_SANDBOX_MODE: "false"
   APP_JWT_EXPIRATION: "86400000"
+  MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
 ---
 apiVersion: v1
 kind: Secret
