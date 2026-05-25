@@ -109,6 +109,9 @@ pipeline {
                             "\"-Dsonar.projectName=${env.SONAR_PROJECT_NAME}\"",
                             "-Dsonar.host.url=${env.SONAR_HOST_URL}",
                             "-Dsonar.token=${env.SONAR_AUTH_TOKEN}",
+                            '-Dsonar.sources=src/main/java/com/esprit/campconnect/Event,src/main/java/com/esprit/campconnect/Reservation',
+                            '-Dsonar.tests=src/test/java/com/esprit/campconnect/Event,src/test/java/com/esprit/campconnect/Reservation',
+                            '-Dsonar.test.inclusions=**/*Test.java',
                             '-Dsonar.java.binaries=target/classes',
                             '-Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml'
                         ].join(' ')
