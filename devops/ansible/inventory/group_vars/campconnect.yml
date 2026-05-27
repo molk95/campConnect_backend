@@ -1,0 +1,28 @@
+---
+campconnect_namespace: campconnect
+
+# Repo paths on the Ansible target host.
+# For WSL controlling Windows repos, use paths like:
+# /mnt/c/Users/ihebb/Desktop/PIDEV2026/campConnect_backend
+campconnect_backend_repo_path: "{{ lookup('env', 'CAMP_CONNECT_BACKEND_REPO') | default('/opt/campconnect/campConnect_backend', true) }}"
+campconnect_frontend_repo_path: "{{ lookup('env', 'CAMP_CONNECT_FRONTEND_REPO') | default('/opt/campconnect/campconnect-frontend', true) }}"
+
+# DevOps stack configuration.
+install_docker: true
+start_devops_stack: true
+devops_user: "{{ ansible_user | default(lookup('env', 'USER')) | default('ubuntu', true) }}"
+jenkins_compose_project_src: "{{ campconnect_backend_repo_path }}/devops"
+jenkins_compose_file: docker-compose.jenkins-sonarqube.yml
+
+# Keep real values in Ansible Vault for a serious environment.
+sonar_jdbc_username: sonar
+sonar_jdbc_password: CHANGE_ME_WITH_ANSIBLE_VAULT
+
+# Kubernetes deployment configuration.
+deploy_backend: true
+deploy_frontend: true
+backend_image_repo: ihebboughanmi/campconnect-backend
+backend_image_tag: latest
+frontend_image_repo: ihebboughanmi/campconnect-frontend
+frontend_image_tag: latest
+rollout_timeout: 180s
