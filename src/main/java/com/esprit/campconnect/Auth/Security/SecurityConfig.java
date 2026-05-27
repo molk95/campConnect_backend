@@ -67,6 +67,7 @@ public class SecurityConfig {
                                 "/commentaires/**",
                                 "/uploads/**",
                                 "/actuator/**",
+                                "/api/actuator/**",
                                 "/forums/**",
                                 "/publications/forum/**").permitAll()
                                                         // ===============================
