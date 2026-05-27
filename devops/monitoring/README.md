@@ -18,6 +18,8 @@ backend:8082/api/actuator/prometheus
 
 Grafana reads Prometheus and automatically loads the `CampConnect Backend Monitoring` dashboard.
 
+The dashboard includes API traffic, latency, error rate, JVM memory, thread states, HikariCP database pool, Tomcat sessions, CPU, process memory, and log event panels.
+
 ## Start Locally
 
 Start the main backend stack first:
@@ -57,6 +59,13 @@ Default Grafana login:
 ```text
 Username: admin
 Password: admin
+```
+
+If Grafana was already initialized before changing the Compose file, the persisted local password may be different. On the current local demo instance, the working login is:
+
+```text
+Username: admin
+Password: adminn
 ```
 
 For a cleaner demo password, create a local `.env` file with:
