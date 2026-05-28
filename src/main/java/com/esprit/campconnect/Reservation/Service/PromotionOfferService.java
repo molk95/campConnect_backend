@@ -452,6 +452,7 @@ public class PromotionOfferService {
                     .multiply(safeMoney(promotionOffer.getDiscountValue()))
                     .divide(HUNDRED, 2, RoundingMode.HALF_UP);
             case FIXED_AMOUNT -> safeMoney(promotionOffer.getDiscountValue());
+            default -> BigDecimal.ZERO;
         };
 
         return calculatedDiscount.min(safeBasePrice).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
