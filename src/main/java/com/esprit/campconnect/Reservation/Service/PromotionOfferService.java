@@ -447,13 +447,17 @@ public class PromotionOfferService {
         }
 
         BigDecimal safeBasePrice = safeMoney(basePriceTotal);
-        BigDecimal calculatedDiscount = switch (promotionOffer.getDiscountType()) {
-            case PERCENTAGE -> safeBasePrice
+        PromotionDiscountType discountType = promotionOffer.getDiscountType();
+        BigDecimal calculatedDiscount;
+        if (discountType == PromotionDiscountType.PERCENTAGE) {
+            calculatedDiscount = safeBasePrice
                     .multiply(safeMoney(promotionOffer.getDiscountValue()))
                     .divide(HUNDRED, 2, RoundingMode.HALF_UP);
-            case FIXED_AMOUNT -> safeMoney(promotionOffer.getDiscountValue());
-            default -> BigDecimal.ZERO;
-        };
+        } else if (discountType == PromotionDiscountType.FIXED_AMOUNT) {
+            calculatedDiscount = safeMoney(promotionOffer.getDiscountValue());
+        } else {
+            calculatedDiscount = BigDecimal.ZERO;
+        }
 
         return calculatedDiscount.min(safeBasePrice).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }

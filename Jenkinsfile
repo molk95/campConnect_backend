@@ -113,7 +113,8 @@ pipeline {
                             '-Dsonar.tests=src/test/java/com/esprit/campconnect/Event,src/test/java/com/esprit/campconnect/Reservation',
                             '-Dsonar.test.inclusions=**/*Test.java',
                             '-Dsonar.java.binaries=target/classes',
-                            '-Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml'
+                            '-Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml',
+                            '-Dsonar.coverage.exclusions=**/DTO/**,**/Entity/**,**/Enum/**,**/Repository/**'
                         ].join(' ')
 
                         runMaven(sonarArgs)

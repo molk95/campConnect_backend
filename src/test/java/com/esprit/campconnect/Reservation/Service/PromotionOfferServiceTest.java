@@ -84,6 +84,20 @@ class PromotionOfferServiceTest {
                 .hasMessageContaining("Promo code not found");
     }
 
+    @Test
+    void evaluateReservationPricingIgnoresPromotionWithMissingDiscountType() {
+        Event event = pricedEvent("75.00");
+        PromotionOffer offer = promotion(1L, "Broken promo", "broken", null, "50.00");
+        when(promotionOfferRepository.findByCodeIgnoreCase("BROKEN")).thenReturn(Optional.of(offer));
+
+        PromotionOfferService.PromotionEvaluationResult result =
+                service.evaluateReservationPricing(event, 2, "broken", true);
+
+        assertThat(result.getBasePriceTotal()).isEqualByComparingTo("150.00");
+        assertThat(result.getDiscountAmount()).isEqualByComparingTo("0.00");
+        assertThat(result.getTotalPrice()).isEqualByComparingTo("150.00");
+    }
+
     private Event pricedEvent(String unitPrice) {
         Event event = new Event();
         event.setId(10L);
