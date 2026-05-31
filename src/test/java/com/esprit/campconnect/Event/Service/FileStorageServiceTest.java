@@ -31,8 +31,9 @@ class FileStorageServiceTest {
         String storedPath = service.storeFile("banner.PNG", new byte[] {1, 2, 3});
 
         Path storedFile = Path.of(storedPath);
-        assertThat(storedFile).exists();
-        assertThat(storedFile.getParent()).isEqualTo(uploadDirectory.toAbsolutePath().normalize());
+        assertThat(storedFile)
+                .exists()
+                .hasParentRaw(uploadDirectory.toAbsolutePath().normalize());
         assertThat(storedFile.getFileName().toString()).endsWith(".PNG");
         assertThat(Files.readAllBytes(storedFile)).containsExactly(1, 2, 3);
     }

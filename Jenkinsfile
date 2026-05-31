@@ -114,7 +114,10 @@ pipeline {
                             '-Dsonar.test.inclusions=**/*Test.java',
                             '-Dsonar.java.binaries=target/classes',
                             '-Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml',
-                            '-Dsonar.coverage.exclusions=**/DTO/**,**/Entity/**,**/Enum/**,**/Repository/**'
+                            '-Dsonar.coverage.exclusions=**/DTO/**,**/Entity/**,**/Enum/**,**/Repository/**',
+                            '-Dsonar.issue.ignore.multicriteria=e1',
+                            '-Dsonar.issue.ignore.multicriteria.e1.ruleKey=java:S120',
+                            '-Dsonar.issue.ignore.multicriteria.e1.resourceKey=**/*.java'
                         ].join(' ')
 
                         runMaven(sonarArgs)

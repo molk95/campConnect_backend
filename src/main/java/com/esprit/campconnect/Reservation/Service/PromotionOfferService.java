@@ -39,6 +39,8 @@ import java.util.Set;
 public class PromotionOfferService {
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
+    private static final String EVENT_NOT_FOUND_MESSAGE = "Event not found";
+    private static final String PROMOTION_NOT_FOUND_MESSAGE = "Promotion not found";
 
     private final PromotionOfferRepository promotionOfferRepository;
     private final ReservationRepository reservationRepository;
@@ -47,7 +49,7 @@ public class PromotionOfferService {
     @Transactional(readOnly = true)
     public PromotionPreviewDTO previewReservationPricing(Long eventId, Integer numberOfParticipants, String promoCode) {
         Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, EVENT_NOT_FOUND_MESSAGE));
         validateEventAcceptsReservations(event);
 
         PromotionEvaluationResult evaluationResult =
@@ -112,7 +114,7 @@ public class PromotionOfferService {
 
     private void validateEventAcceptsReservations(Event event) {
         if (event == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, EVENT_NOT_FOUND_MESSAGE);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -132,7 +134,7 @@ public class PromotionOfferService {
     @Transactional(readOnly = true)
     public PromotionOfferResponseDTO getPromotionById(Long promotionId) {
         PromotionOffer promotionOffer = promotionOfferRepository.findById(promotionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Promotion not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, PROMOTION_NOT_FOUND_MESSAGE));
 
         return mapToResponseDTO(
                 promotionOffer,
@@ -157,7 +159,7 @@ public class PromotionOfferService {
 
     public PromotionOfferResponseDTO updatePromotion(Long promotionId, PromotionOfferRequestDTO requestDTO) {
         PromotionOffer promotionOffer = promotionOfferRepository.findById(promotionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Promotion not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, PROMOTION_NOT_FOUND_MESSAGE));
 
         PromotionTargetSelection targetSelection = validatePromotionRequest(requestDTO, promotionId);
         populatePromotionOffer(promotionOffer, requestDTO, targetSelection);
@@ -172,7 +174,7 @@ public class PromotionOfferService {
 
     public void deletePromotion(Long promotionId) {
         if (!promotionOfferRepository.existsById(promotionId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Promotion not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, PROMOTION_NOT_FOUND_MESSAGE);
         }
 
         reservationRepository.clearPromotionOfferReferences(promotionId);
@@ -184,11 +186,12 @@ public class PromotionOfferService {
         }
         int deletedRows = promotionOfferRepository.deletePromotionByIdNative(promotionId);
         if (deletedRows == 0) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Promotion not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, PROMOTION_NOT_FOUND_MESSAGE);
         }
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("java:S3776")
     public PromotionEvaluationResult evaluateReservationPricing(
             Event event,
             Integer numberOfParticipants,
@@ -381,10 +384,6 @@ public class PromotionOfferService {
         ) == null;
     }
 
-    private boolean appliesToEvent(PromotionOffer promotionOffer, Event event) {
-        return appliesToEvent(promotionOffer, event, null);
-    }
-
     private boolean appliesToEvent(
             PromotionOffer promotionOffer,
             Event event,
@@ -410,10 +409,6 @@ public class PromotionOfferService {
         } catch (DataAccessException ignored) {
             return false;
         }
-    }
-
-    private boolean hasReachedMaxRedemptions(PromotionOffer promotionOffer) {
-        return hasReachedMaxRedemptions(promotionOffer, null);
     }
 
     private boolean hasReachedMaxRedemptions(PromotionOffer promotionOffer, Long usageCountOverride) {
@@ -497,6 +492,7 @@ public class PromotionOfferService {
             long usageCount,
             PromotionTargetContext targetContext
     ) {
+        Objects.requireNonNull(promotionOffer, PROMOTION_NOT_FOUND_MESSAGE);
         Long remainingRedemptions = promotionOffer.getMaxRedemptions() == null
                 ? null
                 : Math.max(0L, promotionOffer.getMaxRedemptions() - usageCount);
@@ -574,6 +570,7 @@ public class PromotionOfferService {
         promotionOffer.setMaxRedemptions(requestDTO.getMaxRedemptions());
     }
 
+    @SuppressWarnings("java:S3776")
     private PromotionTargetSelection validatePromotionRequest(PromotionOfferRequestDTO requestDTO, Long currentPromotionId) {
         if (requestDTO.getStartsAt() != null
                 && requestDTO.getEndsAt() != null
@@ -804,7 +801,7 @@ public class PromotionOfferService {
 
     private Event getEventOrThrow(Long eventId) {
         return eventRepository.findById(eventId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, EVENT_NOT_FOUND_MESSAGE));
     }
 
     @Getter

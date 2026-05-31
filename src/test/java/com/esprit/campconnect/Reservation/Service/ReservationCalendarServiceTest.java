@@ -46,12 +46,15 @@ class ReservationCalendarServiceTest {
 
         String url = service.buildGoogleCalendarUrl(reservation);
 
-        assertThat(url).startsWith("https://calendar.google.com/calendar/render?action=TEMPLATE");
-        assertThat(url).contains("text=Forest%20Camp%20(Waitlist)");
-        assertThat(url).contains("dates=20260710T140000/20260710T163000");
-        assertThat(url).contains("ctz=Africa/Lagos");
-        assertThat(url).contains("location=Lake%20Point%20Camp");
-        assertThat(url).contains("Maps:%20https://maps.example/camp");
+        assertThat(url)
+                .startsWith("https://calendar.google.com/calendar/render?action=TEMPLATE")
+                .contains(
+                        "text=Forest%20Camp%20(Waitlist)",
+                        "dates=20260710T140000/20260710T163000",
+                        "ctz=Africa/Lagos",
+                        "location=Lake%20Point%20Camp",
+                        "Maps:%20https://maps.example/camp"
+                );
     }
 
     @Test
@@ -63,13 +66,16 @@ class ReservationCalendarServiceTest {
 
         String invite = new String(service.generateIcsInvite(reservation), StandardCharsets.UTF_8);
 
-        assertThat(invite).contains("BEGIN:VCALENDAR");
-        assertThat(invite).contains("UID:reservation-42@campconnect.local");
-        assertThat(invite).contains("DTSTART:20260710T130000Z");
-        assertThat(invite).contains("SUMMARY:Forest Camp (Waitlist)");
-        assertThat(invite).contains("STATUS:TENTATIVE");
-        assertThat(invite).contains("LOCATION:Lake Point Camp");
-        assertThat(invite).contains("ORGANIZER;CN=Organizer One:MAILTO:organizer@example.com");
+        assertThat(invite)
+                .contains(
+                        "BEGIN:VCALENDAR",
+                        "UID:reservation-42@campconnect.local",
+                        "DTSTART:20260710T130000Z",
+                        "SUMMARY:Forest Camp (Waitlist)",
+                        "STATUS:TENTATIVE",
+                        "LOCATION:Lake Point Camp",
+                        "ORGANIZER;CN=Organizer One:MAILTO:organizer@example.com"
+                );
         assertThat(invite.replace("\r\n ", "")).contains("Booking notes: Need vegetarian food\\, no nuts\\; thanks");
     }
 
