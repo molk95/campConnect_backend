@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: campconnect
+data:
+  SPRING_PROFILES_ACTIVE: docker
+  SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/campconnect?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+  APP_UPLOAD_DIR: /app/uploads/events
+  PAYMENT_CURRENCY: usd
+  FRONTEND_BASE_URL: http://campconnect.local
+  PAYMENT_SUCCESS_PATH: /public/events/my-reservations
+  PAYMENT_CANCEL_PATH: /public/events/my-reservations
+  GOOGLE_MAPS_STATIC_MAP_WIDTH: "900"
+  GOOGLE_MAPS_STATIC_MAP_HEIGHT: "420"
+  GOOGLE_MAPS_STATIC_MAP_ZOOM: "14"
+  CALENDAR_DEFAULT_ZONE: Africa/Lagos
+  NOTIFICATION_EMAIL_ENABLED: "false"
+  BREVO_API_BASE_URL: https://api.brevo.com/v3
+  BREVO_SENDER_NAME: CampConnect
+  BREVO_SANDBOX_MODE: "false"
+  APP_JWT_EXPIRATION: "86400000"
+  MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: campconnect
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_USERNAME: root
+  APP_JWT_SECRET: Y2FtcGNvbm5lY3QtZGV2LWp3dC1zZWNyZXQtMzItYnl0ZXMtbWluaW11bSE=
+  CLOUDINARY_CLOUD_NAME: change-me
+  CLOUDINARY_API_KEY: change-me
+  CLOUDINARY_API_SECRET: change-me
+  STRIPE_SECRET_KEY: ""
+  STRIPE_PUBLISHABLE_KEY: ""
+  STRIPE_WEBHOOK_SECRET: ""
+  GOOGLE_MAPS_BROWSER_API_KEY: ""
+  GOOGLE_MAPS_SERVER_API_KEY: ""
+  MAIL_USER: ""
+  MAIL_PASS: ""
+  BREVO_API_KEY: ""
+  BREVO_SENDER_EMAIL: ""
+  TWILIO_ACCOUNT_SID: ""
+  TWILIO_AUTH_TOKEN: ""
+  TWILIO_PHONE_NUMBER: ""
+  GOOGLE_CLIENT_ID: dummy-google-client-id
+  GOOGLE_CLIENT_SECRET: dummy-google-client-secret
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-uploads
+  namespace: campconnect
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: campconnect-backend
+  namespace: campconnect
+  labels:
+    app: campconnect-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: campconnect-backend
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campconnect-backend
+  namespace: campconnect
+  labels:
+    app: campconnect-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campconnect-backend
+  template:
+    metadata:
+      labels:
+        app: campconnect-backend
+    spec:
+      containers:
+        - name: backend
+          image: ihebboughanmi/campconnect-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+          volumeMounts:
+            - name: backend-uploads
+              mountPath: /app/uploads
+          readinessProbe:
+            httpGet:
+              path: /api/actuator/health
+              port: http
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/actuator/health
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: backend-uploads
+          persistentVolumeClaim:
+            claimName: backend-uploads

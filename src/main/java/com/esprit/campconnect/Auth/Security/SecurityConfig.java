@@ -21,9 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @RequiredArgsConstructor
-
 @EnableMethodSecurity
-
 public class SecurityConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
@@ -56,8 +54,8 @@ public class SecurityConfig {
                                 "/site-camping-avis/**",
                                 "/inscriptionsite/**",
                                 "/reclamations/**",
-                        "/reclamation-notifications/**",
-                                //"/repas/**",
+                                "/reclamation-notifications/**",
+                                "/repas/**",
                                 "/commandes-repas/**",
                                 "/produits/**",
                                 "/detail-panier/**",
@@ -66,8 +64,14 @@ public class SecurityConfig {
                                 "/details-commandes/**",
                                 "/commentaires",
                                 "/uploads/**",
-                                "/forums/**").permitAll()
-                           // ===============================
+                                "/forums/**",
+                                "/commentaires/**",
+                                "/uploads/**",
+                                "/actuator/**",
+                                "/api/actuator/**",
+                                "/forums/**",
+                                "/publications/forum/**").permitAll()
+                                                        // ===============================
                         // FORMATIONS + GUIDE INTERACTIF
                         // ===============================
                         .requestMatchers(

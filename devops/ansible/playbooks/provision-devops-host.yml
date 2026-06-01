@@ -1,0 +1,114 @@
+---
+- name: Provision CampConnect DevOps host
+  hosts: devops_hosts
+  become: true
+  tasks:
+    - name: Require a Debian or Ubuntu host when Docker installation is enabled
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: "Docker installation tasks currently support Debian/Ubuntu hosts. Set install_docker=false if Docker is already installed."
+      when: install_docker | bool
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: true
+      when: install_docker | bool
+
+    - name: Create Docker apt keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+      when: install_docker | bool
+
+    - name: Install Docker apt key
+      ansible.builtin.get_url:
+        url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+      when: install_docker | bool
+
+    - name: Read package architecture
+      ansible.builtin.command: dpkg --print-architecture
+      register: docker_arch
+      changed_when: false
+      when: install_docker | bool
+
+    - name: Add Docker apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ docker_arch.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+        filename: docker
+        state: present
+      when: install_docker | bool
+
+    - name: Install Docker Engine and Compose plugin
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+      when: install_docker | bool
+
+    - name: Enable Docker service
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+      when: install_docker | bool
+
+    - name: Allow the DevOps user to run Docker
+      ansible.builtin.user:
+        name: "{{ devops_user }}"
+        groups: docker
+        append: true
+      when:
+        - install_docker | bool
+        - devops_user != "root"
+
+    - name: Check that the CampConnect backend repo exists on the host
+      ansible.builtin.stat:
+        path: "{{ jenkins_compose_project_src }}/{{ jenkins_compose_file }}"
+      register: compose_file
+      failed_when: not compose_file.stat.exists
+      when: start_devops_stack | bool
+
+    - name: Write SonarQube database environment file
+      ansible.builtin.template:
+        src: ../templates/sonarqube.env.j2
+        dest: "{{ jenkins_compose_project_src }}/.env"
+        mode: "0600"
+      no_log: true
+      when: start_devops_stack | bool
+
+    - name: Start Jenkins, SonarQube, and SonarQube database
+      community.docker.docker_compose_v2:
+        project_src: "{{ jenkins_compose_project_src }}"
+        files:
+          - "{{ jenkins_compose_file }}"
+        state: present
+        pull: missing
+      when: start_devops_stack | bool
+
+    - name: Show DevOps stack containers
+      ansible.builtin.command:
+        cmd: "docker compose -f {{ jenkins_compose_file }} ps"
+        chdir: "{{ jenkins_compose_project_src }}"
+      register: devops_stack_ps
+      changed_when: false
+      when: start_devops_stack | bool
+
+    - name: Print DevOps stack summary
+      ansible.builtin.debug:
+        var: devops_stack_ps.stdout_lines
+      when: start_devops_stack | bool

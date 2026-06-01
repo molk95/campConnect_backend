@@ -91,9 +91,14 @@ public class DemoDataService {
                 .orElseThrow(() -> new RuntimeException("Meal not found"));
     }
 
+    private Utilisateur getCurrentAuthenticatedUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable. Are you logged in?"));
+    }
+
     public Commande createCommande(Double total) {
-        Utilisateur client = utilisateurRepository.findById(19L)
-                .orElseThrow(() -> new RuntimeException("Demo client not found"));
+        Utilisateur client = getCurrentAuthenticatedUser();
 
         Commande cmd = new Commande();
         cmd.setDateCommande(LocalDate.now());
@@ -105,8 +110,7 @@ public class DemoDataService {
     }
 
     public CommandeRepas createCommandeRepas(Double total) {
-        Utilisateur client = utilisateurRepository.findById(19L)
-                .orElseThrow(() -> new RuntimeException("Demo client not found"));
+        Utilisateur client = getCurrentAuthenticatedUser();
 
         CommandeRepas cmd = new CommandeRepas();
         cmd.setDateCommande(LocalDate.now());

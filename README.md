@@ -81,6 +81,15 @@ Remove containers and the database volume:
 docker compose down -v
 ```
 
+## CI and Code Quality
+
+The repository includes a Jenkins pipeline and SonarQube analysis setup:
+
+- Pipeline: `Jenkinsfile`
+- SonarQube scanner defaults: `sonar-project.properties`
+- Local Jenkins/SonarQube stack: `devops/docker-compose.jenkins-sonarqube.yml`
+- Setup notes: `devops/jenkins-sonarqube.md`
+
 ## Database Scripts
 
 Database helper scripts now live under `database/` instead of the repo root.

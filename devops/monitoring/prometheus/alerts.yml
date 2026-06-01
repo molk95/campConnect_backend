@@ -1,0 +1,29 @@
+groups:
+  - name: campconnect-backend
+    rules:
+      - alert: CampConnectBackendDown
+        expr: up{job="campconnect-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: CampConnect backend is not reachable
+          description: Prometheus cannot scrape the backend actuator metrics endpoint.
+
+      - alert: CampConnectBackendHighErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{job="campconnect-backend",status=~"5.."}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: CampConnect backend is returning 5xx responses
+          description: At least one backend endpoint has returned server errors during the last 5 minutes.
+
+      - alert: CampConnectBackendHighJvmMemory
+        expr: sum(jvm_memory_used_bytes{job="campconnect-backend",area="heap"}) / sum(jvm_memory_max_bytes{job="campconnect-backend",area="heap"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: CampConnect backend JVM heap usage is high
+          description: JVM heap usage has stayed above 85 percent for 5 minutes.
