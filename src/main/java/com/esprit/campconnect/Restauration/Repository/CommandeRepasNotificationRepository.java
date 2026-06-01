@@ -10,15 +10,17 @@ import java.util.Optional;
 public interface CommandeRepasNotificationRepository
         extends JpaRepository<CommandeRepasNotification, Long> {
 
-    List<CommandeRepasNotification> findByDestinataireidOrderByDateCreationDesc(
+    List<CommandeRepasNotification> findByDestinataireIdOrderByDateCreationDesc(
             Long destinataireId);
 
-    long countByDestinataireidAndReadFalse(Long destinataireId);
+    long countByDestinataireIdAndReadFalse(Long destinataireId);
 
-    Optional<CommandeRepasNotification> findByIdAndDestinataireid(Long id, Long destinataireId);
+    Optional<CommandeRepasNotification> findByIdAndDestinataireId(
+            Long id, Long destinataireId);
 
     @Modifying
-    @Query("UPDATE CommandeRepasNotification n SET n.read = true, n.readAt = CURRENT_TIMESTAMP " +
+    @Query("UPDATE CommandeRepasNotification n " +
+            "SET n.read = true, n.readAt = CURRENT_TIMESTAMP " +
             "WHERE n.destinataireId = :userId AND n.read = false")
     void markAllAsReadByUserId(Long userId);
 }

@@ -31,7 +31,6 @@ public class CommandeRepasNotificationServiceImpl
                 .dateCreation(LocalDateTime.now())
                 .read(false)
                 .build();
-
         notifRepo.save(notif);
     }
 
@@ -39,7 +38,7 @@ public class CommandeRepasNotificationServiceImpl
     @Transactional(readOnly = true)
     public List<CommandeRepasNotificationDTO> getMyNotifications(Long gerantId) {
         return notifRepo
-                .findByDestinataireidOrderByDateCreationDesc(gerantId)
+                .findByDestinataireIdOrderByDateCreationDesc(gerantId) // ← Id majuscule
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
@@ -49,13 +48,13 @@ public class CommandeRepasNotificationServiceImpl
     @Transactional(readOnly = true)
     public UnreadCountDTO getUnreadCount(Long gerantId) {
         return new UnreadCountDTO(
-                notifRepo.countByDestinataireidAndReadFalse(gerantId));
+                notifRepo.countByDestinataireIdAndReadFalse(gerantId)); // ← Id majuscule
     }
 
     @Override
     public CommandeRepasNotificationDTO markAsRead(Long notifId, Long gerantId) {
         CommandeRepasNotification notif = notifRepo
-                .findByIdAndDestinataireid(notifId, gerantId)
+                .findByIdAndDestinataireId(notifId, gerantId) // ← Id majuscule
                 .orElseThrow(() -> new RuntimeException(
                         "Notification " + notifId + " not found"));
         notif.setRead(true);

@@ -1,5 +1,6 @@
 package com.esprit.campconnect.Restauration.DTO;
 
+import com.esprit.campconnect.Restauration.Enum.StatutCommandeRepas;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -11,7 +12,7 @@ public class CommandeRepasNotificationDTO {
     private Long id;
     private Long commandeId;
     private String message;
-    private String statut;
+    private StatutCommandeRepas statut;
     private LocalDateTime dateCreation;
     private boolean read;
     private LocalDateTime readAt;
