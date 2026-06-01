@@ -30,7 +30,7 @@ metadata:
 type: Opaque
 stringData:
   SPRING_DATASOURCE_USERNAME: root
-  APP_JWT_SECRET: change-me-before-prod-use-a-long-random-value
+  APP_JWT_SECRET: Y2FtcGNvbm5lY3QtZGV2LWp3dC1zZWNyZXQtMzItYnl0ZXMtbWluaW11bSE=
   CLOUDINARY_CLOUD_NAME: change-me
   CLOUDINARY_API_KEY: change-me
   CLOUDINARY_API_SECRET: change-me
