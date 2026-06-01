@@ -1,6 +1,7 @@
 package com.esprit.campconnect.Restauration.Entity;
 import com.esprit.campconnect.Restauration.Enum.StatutCommandeRepas;
 import com.esprit.campconnect.User.Entity.Utilisateur;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -29,9 +30,9 @@ public class CommandeRepas {
     @Enumerated(EnumType.STRING)
     private StatutCommandeRepas statut;
 
-    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "utilisateur_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Utilisateur utilisateur;
 
     @OneToMany(mappedBy = "commandeRepas", cascade = CascadeType.ALL, orphanRemoval = true)

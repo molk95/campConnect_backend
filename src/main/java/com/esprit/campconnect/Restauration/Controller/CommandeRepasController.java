@@ -10,14 +10,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/commandes")
+@RequestMapping("/commandes-repas")
 @CrossOrigin("*")
 @RequiredArgsConstructor
 public class CommandeRepasController {
 
     private final CommandeRepasService commandeService;
 
-    @PreAuthorize("hasRole('CLIENT')")
+
     @PostMapping
     public CommandeRepas create(@RequestBody CommandeRequestDTO request) {
         return commandeService.createCommande(request);

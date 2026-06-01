@@ -67,12 +67,7 @@ public class SecurityConfig {
                                 "/commentaires",
                                 "/uploads/**",
                                 "/forums/**").permitAll()
-                                 "/commentaires/**",
-                                "/uploads/**",
-                                "/actuator/**",
-                                "/forums/**",
-                                "/publications/forum/**").permitAll()
-                                                        // ===============================
+                           // ===============================
                         // FORMATIONS + GUIDE INTERACTIF
                         // ===============================
                         .requestMatchers(

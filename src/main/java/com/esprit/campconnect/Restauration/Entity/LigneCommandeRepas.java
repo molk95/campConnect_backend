@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @Getter
 @Setter
 @AllArgsConstructor
@@ -27,5 +27,6 @@ public class LigneCommandeRepas {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "repas_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Repas repas;
 }

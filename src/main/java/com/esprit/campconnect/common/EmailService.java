@@ -2,7 +2,7 @@ package com.esprit.campconnect.common;
 
 
 
-import jakarta.mail.MessagingException;
+import  jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
@@ -34,4 +34,5 @@ public class EmailService {
             throw new RuntimeException("Failed to send HTML email", e);
         }
     }
+
 }
