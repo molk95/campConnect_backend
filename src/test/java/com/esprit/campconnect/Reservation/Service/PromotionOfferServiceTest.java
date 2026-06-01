@@ -101,6 +101,52 @@ class PromotionOfferServiceTest {
     }
 
     @Test
+    void previewReservationPricingRejectsMissingEvent() {
+        when(eventRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.previewReservationPricing(404L, 2, null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Event not found");
+    }
+
+    @Test
+    void getPromotionByIdRejectsMissingPromotion() {
+        when(promotionOfferRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getPromotionById(99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Promotion not found");
+    }
+
+    @Test
+    void updatePromotionRejectsMissingPromotion() {
+        when(promotionOfferRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.updatePromotion(99L, null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Promotion not found");
+    }
+
+    @Test
+    void deletePromotionRejectsMissingPromotionBeforeDelete() {
+        when(promotionOfferRepository.existsById(99L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.deletePromotion(99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Promotion not found");
+    }
+
+    @Test
+    void deletePromotionRejectsMissingPromotionAfterNativeDelete() {
+        when(promotionOfferRepository.existsById(99L)).thenReturn(true);
+        when(promotionOfferRepository.deletePromotionByIdNative(99L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.deletePromotion(99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Promotion not found");
+    }
+
+    @Test
     void evaluateReservationPricingRejectsInactiveStrictPromoCode() {
         Event event = pricedEvent("80.00");
         PromotionOffer offer = promotion(1L, "Paused promo", "paused", PromotionDiscountType.PERCENTAGE, "20.00");
