@@ -293,6 +293,26 @@ build.date=${env.BUILD_DATE_UTC}
             steps {
                 withCredentials([file(credentialsId: params.KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG_FILE')]) {
                     script {
+                        def backendReleasePatch = """{
+  "spec": {
+    "template": {
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/version": "${env.K8S_VERSION_LABEL}"
+        },
+        "annotations": {
+          "campconnect.io/release-version": "${env.RELEASE_VERSION}",
+          "campconnect.io/image": "${env.DOCKER_IMAGE_REPO}:${env.DOCKER_IMAGE_TAG}",
+          "campconnect.io/git-sha": "${env.GIT_FULL_SHA}",
+          "campconnect.io/jenkins-build": "${env.BUILD_NUMBER}"
+        }
+      }
+    }
+  }
+}
+"""
+                        writeFile file: 'target/k8s-backend-release-patch.json', text: backendReleasePatch
+
                         if (isUnix()) {
                             sh '''
                                 set -e
@@ -305,7 +325,7 @@ build.date=${env.BUILD_DATE_UTC}
                                     campconnect.io/git-sha="$GIT_FULL_SHA" \
                                     campconnect.io/jenkins-build="$BUILD_NUMBER" \
                                     --overwrite
-                                kubectl -n "$K8S_NAMESPACE" patch deployment/campconnect-backend --type merge -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"app.kubernetes.io/version\":\"$K8S_VERSION_LABEL\"},\"annotations\":{\"campconnect.io/release-version\":\"$RELEASE_VERSION\",\"campconnect.io/image\":\"$DOCKER_IMAGE_REPO:$DOCKER_IMAGE_TAG\",\"campconnect.io/git-sha\":\"$GIT_FULL_SHA\",\"campconnect.io/jenkins-build\":\"$BUILD_NUMBER\"}}}}}"
+                                kubectl -n "$K8S_NAMESPACE" patch deployment/campconnect-backend --type merge --patch-file target/k8s-backend-release-patch.json
                                 kubectl -n "$K8S_NAMESPACE" rollout status deployment/campconnect-backend --timeout="$ROLLOUT_TIMEOUT"
                                 kubectl -n "$K8S_NAMESPACE" rollout history deployment/campconnect-backend
                             '''
@@ -316,7 +336,7 @@ build.date=${env.BUILD_DATE_UTC}
                                 kubectl apply -k devops/k8s
                                 kubectl -n %K8S_NAMESPACE% set image deployment/campconnect-backend backend=%DOCKER_IMAGE_REPO%:%DOCKER_IMAGE_TAG%
                                 kubectl -n %K8S_NAMESPACE% annotate deployment/campconnect-backend campconnect.io/release-version=%RELEASE_VERSION% campconnect.io/image=%DOCKER_IMAGE_REPO%:%DOCKER_IMAGE_TAG% campconnect.io/git-sha=%GIT_FULL_SHA% campconnect.io/jenkins-build=%BUILD_NUMBER% --overwrite
-                                kubectl -n %K8S_NAMESPACE% patch deployment/campconnect-backend --type merge -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"app.kubernetes.io/version\":\"%K8S_VERSION_LABEL%\"},\"annotations\":{\"campconnect.io/release-version\":\"%RELEASE_VERSION%\",\"campconnect.io/image\":\"%DOCKER_IMAGE_REPO%:%DOCKER_IMAGE_TAG%\",\"campconnect.io/git-sha\":\"%GIT_FULL_SHA%\",\"campconnect.io/jenkins-build\":\"%BUILD_NUMBER%\"}}}}}"
+                                kubectl -n %K8S_NAMESPACE% patch deployment/campconnect-backend --type merge --patch-file target/k8s-backend-release-patch.json
                                 kubectl -n %K8S_NAMESPACE% rollout status deployment/campconnect-backend --timeout=%ROLLOUT_TIMEOUT%
                                 kubectl -n %K8S_NAMESPACE% rollout history deployment/campconnect-backend
                             '''
