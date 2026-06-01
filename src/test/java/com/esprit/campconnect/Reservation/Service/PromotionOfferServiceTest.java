@@ -14,6 +14,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -96,6 +98,88 @@ class PromotionOfferServiceTest {
         assertThat(result.getBasePriceTotal()).isEqualByComparingTo("150.00");
         assertThat(result.getDiscountAmount()).isEqualByComparingTo("0.00");
         assertThat(result.getTotalPrice()).isEqualByComparingTo("150.00");
+    }
+
+    @Test
+    void evaluateReservationPricingRejectsInactiveStrictPromoCode() {
+        Event event = pricedEvent("80.00");
+        PromotionOffer offer = promotion(1L, "Paused promo", "paused", PromotionDiscountType.PERCENTAGE, "20.00");
+        offer.setActive(false);
+        when(promotionOfferRepository.findByCodeIgnoreCase("PAUSED")).thenReturn(Optional.of(offer));
+
+        assertThatThrownBy(() -> service.evaluateReservationPricing(event, 1, "paused", true))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("not active");
+    }
+
+    @Test
+    void evaluateReservationPricingRejectsPromoForDifferentEvent() {
+        Event event = pricedEvent("80.00");
+        PromotionOffer offer = promotion(1L, "Private promo", "private", PromotionDiscountType.PERCENTAGE, "20.00");
+        offer.setAppliesToAllEvents(false);
+        when(promotionOfferRepository.findByCodeIgnoreCase("PRIVATE")).thenReturn(Optional.of(offer));
+        when(promotionOfferRepository.countTargetedEvent(1L, 10L)).thenReturn(0L);
+
+        assertThatThrownBy(() -> service.evaluateReservationPricing(event, 1, "private", true))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("not valid for this event");
+    }
+
+    @Test
+    void evaluateReservationPricingRejectsPromotionBeforeStartDate() {
+        Event event = pricedEvent("80.00");
+        PromotionOffer offer = promotion(1L, "Future promo", "future", PromotionDiscountType.PERCENTAGE, "20.00");
+        offer.setStartsAt(LocalDateTime.now().plusDays(1));
+        when(promotionOfferRepository.findByCodeIgnoreCase("FUTURE")).thenReturn(Optional.of(offer));
+
+        assertThatThrownBy(() -> service.evaluateReservationPricing(event, 1, "future", true))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("has not started");
+    }
+
+    @Test
+    void evaluateReservationPricingRejectsMinimumRequirementsAndRedemptionLimit() {
+        Event event = pricedEvent("40.00");
+        PromotionOffer participantsOffer = promotion(1L, "Group promo", "group", PromotionDiscountType.PERCENTAGE, "20.00");
+        participantsOffer.setMinimumParticipants(3);
+        when(promotionOfferRepository.findByCodeIgnoreCase("GROUP")).thenReturn(Optional.of(participantsOffer));
+
+        assertThatThrownBy(() -> service.evaluateReservationPricing(event, 2, "group", true))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("at least 3 guests");
+
+        PromotionOffer subtotalOffer = promotion(2L, "Big basket", "basket", PromotionDiscountType.FIXED_AMOUNT, "15.00");
+        subtotalOffer.setMinimumSubtotal(new BigDecimal("100.00"));
+        when(promotionOfferRepository.findByCodeIgnoreCase("BASKET")).thenReturn(Optional.of(subtotalOffer));
+
+        assertThatThrownBy(() -> service.evaluateReservationPricing(event, 2, "basket", true))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("subtotal of at least $100");
+
+        PromotionOffer limitedOffer = promotion(3L, "Limited promo", "limit", PromotionDiscountType.FIXED_AMOUNT, "15.00");
+        limitedOffer.setMaxRedemptions(2);
+        when(promotionOfferRepository.findByCodeIgnoreCase("LIMIT")).thenReturn(Optional.of(limitedOffer));
+        when(reservationRepository.countByPromotionOfferId(3L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> service.evaluateReservationPricing(event, 2, "limit", true))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("campaign limit");
+    }
+
+    @Test
+    void evaluateReservationPricingIgnoresNullAutoPromotionCandidate() {
+        Event event = pricedEvent("100.00");
+        List<PromotionOffer> autoPromotions = new ArrayList<>();
+        autoPromotions.add(null);
+        when(promotionOfferRepository.findByAutoApplyTrueAndActiveTrueOrderByDateCreationDesc())
+                .thenReturn(autoPromotions);
+
+        PromotionOfferService.PromotionEvaluationResult result =
+                service.evaluateReservationPricing(event, 1, null, false);
+
+        assertThat(result.getDiscountAmount()).isEqualByComparingTo("0.00");
+        assertThat(result.getTotalPrice()).isEqualByComparingTo("100.00");
+        assertThat(result.getValidationMessage()).isNull();
     }
 
     private Event pricedEvent(String unitPrice) {

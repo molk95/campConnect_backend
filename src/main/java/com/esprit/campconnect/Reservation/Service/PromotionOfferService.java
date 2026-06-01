@@ -315,7 +315,7 @@ public class PromotionOfferService {
             PromotionTargetContext targetContext
     ) {
         if (promotionOffer == null) {
-            return "Promotion not found";
+            return PROMOTION_NOT_FOUND_MESSAGE;
         }
 
         if (!Boolean.TRUE.equals(promotionOffer.getActive())) {
