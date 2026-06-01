@@ -1,4 +1,7 @@
 package com.esprit.campconnect.Restauration.Entity;
+
+import com.esprit.campconnect.User.Entity.Utilisateur;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,6 +21,11 @@ public class Repas {
 
     private String nom;
     private double prix;
+    private String image;          // 👈 URL Cloudinary
+    private String imagePublicId;  // 👈 ajouté pour pouvoir supprimer sur Cloudinary
 
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "utilisateur_id")
+    @JsonIgnore
+    private Utilisateur utilisateur;
 }

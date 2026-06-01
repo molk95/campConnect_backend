@@ -1,61 +1,102 @@
 package com.esprit.campconnect.Restauration.Service;
-
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import com.esprit.campconnect.Restauration.Service.RepasCloudinaryService;
 import com.esprit.campconnect.Restauration.Entity.Repas;
 import com.esprit.campconnect.Restauration.Repository.RepasRepository;
+import com.esprit.campconnect.User.Entity.Utilisateur;
+import com.esprit.campconnect.User.Repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class RepasServiceImpl implements RepasService {
 
     private final RepasRepository repasRepository;
+    private final UtilisateurRepository utilisateurRepository;
 
-    @Override
-    public Repas createRepas(Repas repas) {
-        // VALIDATION NOM
-        if (repas.getNom() == null || repas.getNom().isEmpty()) {
-            throw new RuntimeException("Nom obligatoire");
+    private final RepasCloudinaryService cloudinaryService; // 👈 interface commune
+
+          @Override
+          public Repas createRepas(String nom, Double prix, MultipartFile image) {
+
+            if (nom == null || nom.isEmpty()) {
+                throw new RuntimeException("Nom obligatoire");
+            }
+            if (prix == null || prix < 0) {
+                throw new RuntimeException("Prix invalide");
+            }
+            if (image == null || image.isEmpty()) {
+                throw new RuntimeException("Image obligatoire");
+            }
+
+            // 👇 upload vers Cloudinary — même méthode que ta collègue
+            Map<String, String> uploadResult = cloudinaryService.uploadImage(image);
+
+            // 👇 récupérer utilisateur connecté
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+
+            Repas repas = new Repas();
+            repas.setNom(nom);
+            repas.setPrix(prix);
+            repas.setImage(uploadResult.get("imageUrl"));           // 👈 URL complète
+            repas.setImagePublicId(uploadResult.get("imagePublicId")); // 👈 pour suppression
+            repas.setUtilisateur(utilisateur);
+
+            return repasRepository.save(repas);
         }
-        if (repas.getPrix() < 0) {
-            throw new RuntimeException("Prix invalide");
-        }
-        return repasRepository.save(repas);
-    }
 
-    @Override
-    public List<Repas> getAllRepas() {
-        return repasRepository.findAll();
-    }
-
-    @Override
-    public Repas getRepasById(Long id) {
-        return repasRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Repas non trouvé"));
-    }
-
-    @Override
-    public Repas updateRepas(Long id, Repas repas) {
-
-        if (repas.getNom() == null || repas.getNom().isEmpty()) {
-            throw new RuntimeException("Nom obligatoire");
+        @Override
+        public List<Repas> getAllRepas() {
+            return repasRepository.findAll();
         }
 
-        if (repas.getPrix() < 0) {
-            throw new RuntimeException("Prix invalide");
+        @Override
+        public Repas getRepasById(Long id) {
+            return repasRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Repas non trouvé"));
         }
 
-        Repas existing = getRepasById(id);
+        @Override
+        public Repas updateRepas(Long id, String nom, Double prix, MultipartFile image) {
 
-        existing.setNom(repas.getNom());
-        existing.setPrix(repas.getPrix());
+            Repas repas = repasRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Repas non trouvé"));
 
-        return repasRepository.save(existing);
+            repas.setNom(nom);
+            repas.setPrix(prix);
+
+            if (image != null && !image.isEmpty()) {
+                // 👇 supprimer ancienne image sur Cloudinary via publicId
+                if (repas.getImagePublicId() != null) {
+                    cloudinaryService.deleteImage(repas.getImagePublicId());
+                }
+                // 👇 uploader la nouvelle
+                Map<String, String> uploadResult = cloudinaryService.uploadImage(image);
+                repas.setImage(uploadResult.get("imageUrl"));
+                repas.setImagePublicId(uploadResult.get("imagePublicId"));
+            }
+
+            return repasRepository.save(repas);
+        }
+
+        @Override
+        public void deleteRepas(Long id) {
+            Repas repas = repasRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Repas non trouvé"));
+
+            // 👇 supprimer image sur Cloudinary avant suppression BDD
+            if (repas.getImagePublicId() != null) {
+                cloudinaryService.deleteImage(repas.getImagePublicId());
+            }
+
+            repasRepository.deleteById(id);
+        }
     }
-
-    @Override
-    public void deleteRepas(Long id) {
-        repasRepository.deleteById(id);
-    }
-}

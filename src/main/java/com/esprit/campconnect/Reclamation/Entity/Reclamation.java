@@ -15,6 +15,14 @@ public class Reclamation {
 
     private LocalDateTime dateAcceptation;
         private LocalDate dateCreation;
+    @Column(name = "reduction_pourcentage")
+    private Integer reductionPourcentage; // ex: 10, 20, 30
+
+    public Integer getReductionPourcentage() { return reductionPourcentage; }
+    public void setReductionPourcentage(Integer reductionPourcentage) {
+        this.reductionPourcentage = reductionPourcentage;
+    }
+
 
         @Enumerated(EnumType.STRING)
         private StatutReclamation statut;

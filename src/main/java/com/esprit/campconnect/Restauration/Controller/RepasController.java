@@ -4,6 +4,9 @@ import com.esprit.campconnect.Restauration.Entity.Repas;
 import com.esprit.campconnect.Restauration.Service.RepasService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
@@ -14,31 +17,36 @@ import java.util.List;
 public class RepasController {
 
     private final RepasService repasService;
-
-    @PostMapping
-    @PreAuthorize("hasRole('GERANT_RESTAU')")
-    public Repas create(@RequestBody Repas repas) {
-        return repasService.createRepas(repas);
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Repas create(
+            @RequestParam("nom") String nom,
+            @RequestParam("prix") Double prix,
+            @RequestParam(value = "image", required = false) MultipartFile image
+    ) {
+        return repasService.createRepas(nom, prix, image);
     }
-   @GetMapping
-   public List<Repas> getAll() {
+
+    @GetMapping
+    public List<Repas> getAll() {
         return repasService.getAllRepas();
     }
-
 
     @GetMapping("/{id}")
     public Repas getById(@PathVariable Long id) {
         return repasService.getRepasById(id);
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('GERANT_RESTAU')")
-    public Repas update(@PathVariable Long id, @RequestBody Repas repas) {
-        return repasService.updateRepas(id, repas);
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Repas update(
+            @PathVariable Long id,
+            @RequestParam("nom") String nom,
+            @RequestParam("prix") Double prix,
+            @RequestParam(value = "image", required = false) MultipartFile image
+    ) {
+        return repasService.updateRepas(id, nom, prix, image);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('GERANT_RESTAU')")
     public void delete(@PathVariable Long id) {
         repasService.deleteRepas(id);
     }

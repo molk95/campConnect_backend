@@ -12,6 +12,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -92,11 +93,12 @@ public class SecurityConfig {
                                 //.hasAnyRole("CLIENT", "GERANT_RESTAU")
                                 .hasAnyAuthority("CLIENT", "GERANT_RESTAU")
 //                        .requestMatchers(HttpMethod.GET, "/repas/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/repas/**").permitAll()
 
-                        .requestMatchers(HttpMethod.POST, "/repas/**").hasRole("GERANT_RESTAU")
-                        .requestMatchers(HttpMethod.PUT, "/repas/**").hasRole("GERANT_RESTAU")
-                        .requestMatchers(HttpMethod.DELETE, "/repas/**").hasRole("GERANT_RESTAU")
-                        .requestMatchers(HttpMethod.POST, "/commandes/**").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.POST, "/repas/**").hasAnyAuthority("GERANT_RESTAU", "ADMINISTRATEUR")
+                        .requestMatchers(HttpMethod.PUT, "/repas/**").hasAnyAuthority("GERANT_RESTAU", "ADMINISTRATEUR")
+                        .requestMatchers(HttpMethod.DELETE, "/repas/**").hasAnyAuthority("GERANT_RESTAU", "ADMINISTRATEUR")
+                        .requestMatchers(HttpMethod.POST, "/commandes/**").hasAnyAuthority("GERANT_RESTAU", "ADMINISTRATEUR", "CLIENT")
                         .requestMatchers(HttpMethod.GET, "/commandes/**").authenticated()
 
 
@@ -137,6 +139,8 @@ public class SecurityConfig {
                                  "/commentaires",
                                 "/uploads/**",
                                 "/forums/**").permitAll()
+
+                        //commenté par manel .anyRequest().authenticated()
 
 
                         .requestMatchers(HttpMethod.POST, "/stripe/webhook").permitAll()
@@ -266,9 +270,64 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/assurance-ai/fraude-sinistre-by-sinistre/**")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
-                        .requestMatchers(HttpMethod.POST, "/api/assurance-ai/resume-sinistre/**")
+                        .requestMatchers(HttpMethod.PUT, "/api/souscription-assurance/update")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/souscription-assurance/delete/*")
+                        .hasRole("ADMINISTRATEUR")
+
+                        // ===============================
+                        // SINISTRES
+                        // ===============================
+                        .requestMatchers(HttpMethod.GET, "/api/sinistre/all")
                         .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
 
+                        .requestMatchers(HttpMethod.GET, "/api/sinistre/souscription/*")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.POST, "/api/sinistre/add/*")
+                        .hasRole("CLIENT")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/sinistre/update")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/sinistre/delete/*")
+                        .hasRole("ADMINISTRATEUR")
+
+                        .requestMatchers(HttpMethod.GET, "/api/document-assurance/sinistre/*")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.POST, "/api/document-assurance/add/*")
+                        .hasRole("CLIENT")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/document-assurance/delete/*")
+                        .hasAnyRole("CLIENT", "ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        // ===============================
+                        // REMBOURSEMENTS
+                        // ===============================
+                        .requestMatchers(HttpMethod.GET, "/api/remboursement/all")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/remboursement/*")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.POST, "/api/remboursement/add/*")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/remboursement/update")
+                        .hasAnyRole("ADMINISTRATEUR", "AGENT_ASSURANCE")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/remboursement/delete/*")
+                        .hasRole("ADMINISTRATEUR")
+
+
+
+                        .requestMatchers(HttpMethod.GET, "/publications/forum/**").permitAll()
+
+                        // ===============================
+                        // ADMIN AREA
+                        // ===============================
                         .requestMatchers(HttpMethod.GET, "/publications/forum/**").permitAll()
 
                         .requestMatchers(HttpMethod.POST, "/api/assurance-weather/verifier")

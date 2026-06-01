@@ -1,4 +1,6 @@
 package com.esprit.campconnect.Restauration.Service;
+import com.esprit.campconnect.common.EmailService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -21,6 +23,13 @@ import java.util.List;
 @Service("commandeRepasService")
 @RequiredArgsConstructor
 public class CommandeRepasServiceImpl implements CommandeRepasService {
+
+
+    // Ajouter ces 3 injections en haut de la classe
+    @Autowired private ICommandeRepasNotificationService notifService;
+    @Autowired private EmailService emailService;
+    @Autowired
+    private UtilisateurRepository utilisateurRepository;
 
     private final CommandeRepasRepository commandeRepo;
     private final UtilisateurRepository userRepo;
