@@ -248,6 +248,8 @@
                         <include>com/esprit/campconnect/Reservation/**/*</include>
                         <include>com/esprit/campconnect/Livraison/**/*</include>
                         <include>com/esprit/campconnect/siteCamping/**/*</include>
+                        <include>com/esprit/campconnect/SiteCampingAvis/**/*</include>
+                        <include>com/esprit/campconnect/InscriptionSite/**/*</include>
                     </includes>
                 </configuration>
                 <executions>
