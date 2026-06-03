@@ -16,6 +16,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 
@@ -35,6 +36,9 @@ public class AuthService {
 
     private final GoogleAuthService googleAuthService;
     private final TwoFactorAuthService twoFactorAuthService;
+    
+    @Value("${FRONTEND_BASE_URL}")
+    private String frontendUrl;
 
     public AuthResponse register(RegisterRequest request) {
         if (utilisateurRepository.existsByEmail(request.getEmail())) {
@@ -140,7 +144,7 @@ public class AuthService {
         passwordResetTokenRepository.save(resetToken);
         System.out.println("✅ Token enregistré : " + token);
 
-        String resetLink = "http://localhost:4200/reset-password?token=" + token;
+        String resetLink = frontendUrl + "/reset-password?token=" + token;
         System.out.println("🔗 Reset link : " + resetLink);
 
         mailService.sendMail(
