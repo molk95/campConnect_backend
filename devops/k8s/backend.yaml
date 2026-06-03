@@ -146,6 +146,7 @@ spec:
             httpGet:
               path: /api/actuator/health
               port: http
+              scheme: HTTPS
             initialDelaySeconds: 45
             periodSeconds: 10
             timeoutSeconds: 5
@@ -154,6 +155,7 @@ spec:
             httpGet:
               path: /api/actuator/health
               port: http
+              scheme: HTTPS
             initialDelaySeconds: 90
             periodSeconds: 20
             timeoutSeconds: 5
