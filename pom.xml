@@ -242,6 +242,14 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
+                <configuration>
+                    <includes>
+                        <include>com/esprit/campconnect/Event/**/*</include>
+                        <include>com/esprit/campconnect/Reservation/**/*</include>
+                        <include>com/esprit/campconnect/Livraison/**/*</include>
+                        <include>com/esprit/campconnect/siteCamping/**/*</include>
+                    </includes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
